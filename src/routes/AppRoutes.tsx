@@ -4,13 +4,21 @@ import DashboardPage from '../features/dashboard/DashboardPage';
 import EditorPage from '../features/editor/EditorPage';
 import ProjectSettingsPage from '../features/settings/ProjectSettingsPage';
 import NotFoundPage from '../features/misc/NotFoundPage';
+import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRoutes = () => (
   <Routes>
+    {/* Public Routes */}
     <Route path='/' element={<AuthPage />} />
-    <Route path='/dashboard' element={<DashboardPage />} />
-    <Route path='/editor/:projectId' element={<EditorPage />} />
-    <Route path='/settings/:projectId' element={<ProjectSettingsPage />} />
+
+    {/* Protected Routes */}
+    <Route element={<ProtectedRoute />}>
+      <Route path='/dashboard' element={<DashboardPage />} />
+      <Route path='/editor/:projectId' element={<EditorPage />} />
+      <Route path='/settings/:projectId' element={<ProjectSettingsPage />} />
+    </Route>
+
+    {/* Catch-all */}
     <Route path='*' element={<NotFoundPage />} />
   </Routes>
 );

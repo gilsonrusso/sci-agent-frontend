@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
@@ -10,22 +10,63 @@ import {
   Divider,
   Tab,
   Tabs,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import { Google, GitHub, Science } from '@mui/icons-material';
+import { authApi } from './authApi';
+import { AxiosError } from 'axios';
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState(0);
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Navigate to dashboard after "login"
-    navigate('/dashboard');
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (activeTab === 0) {
+        // Login
+        const response = await authApi.login({ username: email, password });
+        localStorage.setItem('access_token', response.access_token);
+        navigate('/dashboard');
+      } else {
+        // Register
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        await authApi.register({ email, password });
+        // Auto login after register or ask user to login?
+        // Let's auto login for better UX
+        const response = await authApi.login({ username: email, password });
+        localStorage.setItem('access_token', response.access_token);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      if (err instanceof AxiosError) {
+        setError(err.response?.data?.detail || 'Authentication failed');
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSocialAuth = (provider: string) => {
     console.log(`Authenticating with ${provider}`);
-    navigate('/dashboard');
+    // Future implementation
   };
 
   return (
@@ -136,6 +177,12 @@ export default function AuthPage() {
               <Tab label='Register' />
             </Tabs>
 
+            {error && (
+              <Alert severity='error' sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+
             <Box component='form' onSubmit={handleSubmit}>
               <TextField
                 fullWidth
@@ -144,6 +191,9 @@ export default function AuthPage() {
                 variant='outlined'
                 sx={{ mb: 2 }}
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
               <TextField
                 fullWidth
@@ -152,11 +202,14 @@ export default function AuthPage() {
                 variant='outlined'
                 sx={{ mb: 1 }}
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
 
               {activeTab === 0 && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                  <Button size='small' sx={{ textTransform: 'none' }}>
+                  <Button size='small' sx={{ textTransform: 'none' }} disabled={loading}>
                     Forgot password?
                   </Button>
                 </Box>
@@ -170,6 +223,9 @@ export default function AuthPage() {
                   variant='outlined'
                   sx={{ mb: 2 }}
                   required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
                 />
               )}
 
@@ -178,6 +234,7 @@ export default function AuthPage() {
                 fullWidth
                 variant='contained'
                 size='large'
+                disabled={loading}
                 sx={{
                   mb: 3,
                   py: 1.5,
@@ -187,7 +244,13 @@ export default function AuthPage() {
                   },
                 }}
               >
-                {activeTab === 0 ? 'Sign In' : 'Create Account'}
+                {loading ? (
+                  <CircularProgress size={24} color='inherit' />
+                ) : activeTab === 0 ? (
+                  'Sign In'
+                ) : (
+                  'Create Account'
+                )}
               </Button>
 
               <Divider sx={{ mb: 3 }}>
@@ -203,6 +266,7 @@ export default function AuthPage() {
                   startIcon={<Google />}
                   onClick={() => handleSocialAuth('Google')}
                   sx={{ py: 1.5 }}
+                  disabled={loading}
                 >
                   Google
                 </Button>
@@ -212,6 +276,7 @@ export default function AuthPage() {
                   startIcon={<GitHub />}
                   onClick={() => handleSocialAuth('GitHub')}
                   sx={{ py: 1.5 }}
+                  disabled={loading}
                 >
                   GitHub
                 </Button>
