@@ -1,22 +1,13 @@
-import { Box, Typography } from "@mui/material";
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme/theme';
+import { AppRoutes } from './routes/AppRoutes';
 
 function App() {
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        gap: 2,
-      }}
-    >
-      <Typography variant="h2" component="h1">
-        SciAgent OS
-      </Typography>
-      <Typography variant="subtitle1">Frontend Environment Ready</Typography>
-    </Box>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AppRoutes />
+    </ThemeProvider>
   );
 }
 
