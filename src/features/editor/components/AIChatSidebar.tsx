@@ -1,247 +1,188 @@
-import { useState } from 'react';
-import { Box, Typography, TextField, IconButton, Paper, Avatar, Chip } from '@mui/material';
-import { Send, Close, SmartToy, Person } from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
+import PersonIcon from '@mui/icons-material/Person';
+import SendIcon from '@mui/icons-material/Send';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import {
+  Box,
+  CircularProgress,
+  Divider,
+  IconButton,
+  List,
+  ListItem,
+  Paper,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
-  id: number;
-  sender: 'user' | 'ai';
-  agent?: string;
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
 }
-
-const mockMessages: Message[] = [
-  {
-    id: 1,
-    sender: 'ai',
-    agent: 'Researcher Agent',
-    content:
-      'Hello! I can help you with research, citations, and methodology. What would you like to work on?',
-    timestamp: '10:30 AM',
-  },
-  {
-    id: 2,
-    sender: 'user',
-    content: 'Can you help me improve the introduction section?',
-    timestamp: '10:32 AM',
-  },
-  {
-    id: 3,
-    sender: 'ai',
-    agent: 'Researcher Agent',
-    content:
-      'Sure! I noticed your introduction could benefit from:\n\n1. A stronger hook to capture reader attention\n2. More recent citations (2024-2026)\n3. Clear statement of the research gap\n\nWould you like me to suggest specific improvements?',
-    timestamp: '10:32 AM',
-  },
-  {
-    id: 4,
-    sender: 'user',
-    content: 'Yes, please suggest improvements for the first paragraph',
-    timestamp: '10:33 AM',
-  },
-  {
-    id: 5,
-    sender: 'ai',
-    agent: 'Researcher Agent',
-    content:
-      "Here's a revised version:\n\n```latex\nQuantum computing represents a paradigm shift that threatens the foundation of modern cryptography. Recent breakthroughs in quantum error correction \\cite{wilkes2024} and qubit scalability \\cite{chen2025} suggest that large-scale quantum computers may be realized within the next decade, necessitating immediate development of quantum-resistant cryptographic protocols.\n```\n\nThis adds urgency and recent citations. Shall I insert this?",
-    timestamp: '10:34 AM',
-  },
-];
 
 interface AIChatSidebarProps {
+  open: boolean;
   onClose: () => void;
+  projectId: string;
+  getContext: () => string; // Callback to get current editor content
 }
 
-export function AIChatSidebar({ onClose }: AIChatSidebarProps) {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+export default function AIChatSidebar({ onClose, projectId, getContext }: AIChatSidebarProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [selectedAgent, setSelectedAgent] = useState('Researcher Agent');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-    const newMessage: Message = {
-      id: messages.length + 1,
-      sender: 'user',
-      content: input,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-    setMessages([...messages, newMessage]);
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: messages.length + 2,
-        sender: 'ai',
-        agent: selectedAgent,
-        content: 'I understand your request. Let me analyze that and provide suggestions...',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+    // Placeholder for new Assistant Message
+    const assistantMessage: Message = { role: 'assistant', content: '' };
+    setMessages((prev) => [...prev, assistantMessage]);
+
+    try {
+      const token =
+        localStorage.getItem('access_token') ||
+        JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token;
+
+      const response = await fetch('http://localhost:8000/api/v1/agent/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          message: userMessage.content,
+          context: getContext(),
+          chat_history: messages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        const chunkValue = decoder.decode(value);
+
+        setMessages((prev) => {
+          const lastMsg = { ...prev[prev.length - 1] };
+          lastMsg.content += chunkValue;
+          return [...prev.slice(0, -1), lastMsg];
+        });
+      }
+    } catch (error) {
+      console.error('Chat Error:', error);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Error: Failed to get response.' },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <Box
       sx={{
+        width: '100%',
         height: '100%',
-        backgroundColor: '#1A1F2E',
         display: 'flex',
         flexDirection: 'column',
-        width: '100%',
+        bgcolor: 'background.paper',
+        borderLeft: 1,
+        borderColor: 'divider',
       }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography variant='h6' sx={{ fontWeight: 600 }}>
-          AI Assistant
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant='h6' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SmartToyIcon color='primary' /> AI Assistant
         </Typography>
-        <IconButton size='small' onClick={onClose}>
-          <Close />
+        <IconButton onClick={onClose}>
+          <CloseIcon />
         </IconButton>
       </Box>
+      <Divider />
 
-      {/* Agent Selector */}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          gap: 1,
-          flexWrap: 'wrap',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-        }}
-      >
-        <Chip
-          label='Researcher Agent'
-          onClick={() => setSelectedAgent('Researcher Agent')}
-          color={selectedAgent === 'Researcher Agent' ? 'primary' : 'default'}
-          size='small'
-        />
-        <Chip
-          label='Reviewer Agent'
-          onClick={() => setSelectedAgent('Reviewer Agent')}
-          color={selectedAgent === 'Reviewer Agent' ? 'primary' : 'default'}
-          size='small'
-        />
-        <Chip
-          label='Editor Agent'
-          onClick={() => setSelectedAgent('Editor Agent')}
-          color={selectedAgent === 'Editor Agent' ? 'primary' : 'default'}
-          size='small'
-        />
-      </Box>
-
-      {/* Messages */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-        {messages.map((message) => (
-          <Box
-            key={message.id}
+      <List sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+        {messages.map((msg, index) => (
+          <ListItem
+            key={index}
             sx={{
-              mb: 3,
-              display: 'flex',
-              flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
-              alignItems: 'flex-start',
-              gap: 1.5,
+              flexDirection: 'column',
+              alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
             }}
           >
-            <Avatar
+            <Paper
               sx={{
-                width: 32,
-                height: 32,
-                bgcolor: message.sender === 'user' ? '#3949AB' : '#10B981',
+                p: 1.5,
+                maxWidth: '90%',
+                bgcolor: msg.role === 'user' ? 'primary.light' : 'secondary.light',
+                color: msg.role === 'user' ? 'primary.contrastText' : 'secondary.contrastText',
+                borderRadius: 2,
               }}
             >
-              {message.sender === 'user' ? (
-                <Person fontSize='small' />
-              ) : (
-                <SmartToy fontSize='small' />
-              )}
-            </Avatar>
-
-            <Box sx={{ maxWidth: '85%' }}>
-              {message.agent && (
-                <Typography
-                  variant='caption'
-                  color='text.secondary'
-                  sx={{ mb: 0.5, display: 'block' }}
-                >
-                  {message.agent}
-                </Typography>
-              )}
-              <Paper
-                sx={{
-                  p: 1.5,
-                  backgroundColor: message.sender === 'user' ? '#3949AB' : '#212838',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography
-                  variant='body2'
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontFamily: message.content.includes('```')
-                      ? 'JetBrains Mono, monospace'
-                      : 'inherit',
-                    fontSize: message.content.includes('```') ? 12 : 14,
-                  }}
-                >
-                  {message.content}
-                </Typography>
-              </Paper>
-              <Typography
-                variant='caption'
-                color='text.secondary'
-                sx={{ mt: 0.5, display: 'block' }}
-              >
-                {message.timestamp}
+              <Typography variant='body2' component='div'>
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
               </Typography>
-            </Box>
-          </Box>
+            </Paper>
+            <Typography variant='caption' color='text.secondary' sx={{ mt: 0.5 }}>
+              {msg.role === 'user' ? (
+                <PersonIcon fontSize='small' />
+              ) : (
+                <SmartToyIcon fontSize='small' />
+              )}
+            </Typography>
+          </ListItem>
         ))}
-      </Box>
+        {isLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+            <CircularProgress size={20} />
+          </Box>
+        )}
+        <div ref={messagesEndRef} />
+      </List>
 
-      {/* Input */}
-      <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <TextField
-            fullWidth
-            size='small'
-            placeholder='Ask AI assistant...'
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: '#212838',
-              },
-            }}
-          />
-          <IconButton
-            color='primary'
-            onClick={handleSend}
-            sx={{
-              backgroundColor: '#10B981',
-              color: '#fff',
-              '&:hover': {
-                backgroundColor: '#059669',
-              },
-            }}
-          >
-            <Send />
-          </IconButton>
-        </Box>
+      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <TextField
+          fullWidth
+          size='small'
+          placeholder='Ask about your paper...'
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+          disabled={isLoading}
+          InputProps={{
+            endAdornment: (
+              <IconButton
+                onClick={handleSend}
+                disabled={isLoading || !input.trim()}
+                color='primary'
+              >
+                <SendIcon />
+              </IconButton>
+            ),
+          }}
+        />
       </Box>
     </Box>
   );

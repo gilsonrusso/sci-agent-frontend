@@ -14,8 +14,8 @@ export const AppRoutes = () => (
     {/* Protected Routes */}
     <Route element={<ProtectedRoute />}>
       <Route path='/dashboard' element={<DashboardPage />} />
-      <Route path='/editor/:projectId' element={<EditorPage />} />
-      <Route path='/settings/:projectId' element={<ProjectSettingsPage />} />
+      <Route path='/editor/:id' element={<EditorPage />} />
+      <Route path='/settings/:id' element={<ProjectSettingsPage />} />
     </Route>
 
     {/* Catch-all */}

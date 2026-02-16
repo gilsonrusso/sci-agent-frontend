@@ -1,468 +1,333 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
 import {
-  Box,
+  Menu as MenuIcon,
+  PlayArrow as PlayIcon,
+  SmartToy as SmartToyIcon,
+} from '@mui/icons-material';
+import {
   AppBar,
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
   Toolbar,
   Typography,
-  Button,
-  IconButton,
-  Avatar,
-  AvatarGroup,
-  Breadcrumbs,
-  Link,
-  Menu,
-  MenuItem,
-  Tooltip,
-  Divider,
-  Paper,
-  Drawer,
 } from '@mui/material';
-import {
-  PlayArrow,
-  KeyboardArrowDown,
-  FormatBold,
-  FormatItalic,
-  Functions,
-  Image as ImageIcon,
-  FormatQuote,
-  History,
-  Settings,
-  Chat,
-  Menu as MenuIcon,
-} from '@mui/icons-material';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { AIChatSidebar } from './components/AIChatSidebar';
-import { VersionHistory } from './components/VersionHistory';
+import { useNavigate, useParams } from 'react-router';
+import { axiosClient } from '../../api/axiosClient';
+import { projectsApi } from '../dashboard/projectsApi';
 
-const sampleLatex = `\\documentclass[12pt]{article}
-\\usepackage{amsmath}
-\\usepackage{graphicx}
-\\usepackage{cite}
+// CodeMirror & Yjs
+import { yCollab } from 'y-codemirror.next';
+import { WebsocketProvider } from 'y-websocket';
+import * as Y from 'yjs';
+// @ts-ignore
+import { markdown } from '@codemirror/lang-markdown';
+import { EditorState } from '@codemirror/state';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView, keymap } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
 
-\\title{Quantum Computing Applications in Cryptography}
-\\author{Dr. Jane Smith, Dr. Alex Martinez}
-\\date{February 2026}
+import { defaultKeymap } from '@codemirror/commands';
 
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-This paper explores the revolutionary applications of quantum computing 
-in modern cryptographic systems. We present novel approaches to 
-post-quantum cryptography and analyze their efficiency compared to 
-classical methods.
-\\end{abstract}
-
-\\section{Introduction}
-Quantum computing represents a paradigm shift in computational power.
-The ability to leverage quantum superposition and entanglement opens
-new possibilities for both breaking and creating cryptographic systems.
-
-\\subsection{Background}
-Classical cryptography relies on computational complexity. However,
-Shor's algorithm demonstrates that quantum computers can factor large
-numbers exponentially faster than classical computers \\cite{shor1994}.
-
-\\section{Methodology}
-We implement our quantum algorithms using the following approach:
-
-\\begin{equation}
-H|0\\rangle = \\frac{1}{\\sqrt{2}}(|0\\rangle + |1\\rangle)
-\\end{equation}
-
-This Hadamard gate creates superposition, fundamental to quantum
-computation.
-
-\\subsection{Experimental Setup}
-Our experiments were conducted on IBM's quantum computers with
-the following parameters:
-\\begin{itemize}
-    \\item Qubits: 127
-    \\item Gate fidelity: 99.9\\%
-    \\item Coherence time: 100 μs
-\\end{itemize}
-
-\\section{Results}
-The quantum key distribution protocol showed remarkable improvements:
-
-\\begin{equation}
-E_{\\text{eff}} = 1 - H(p)
-\\end{equation}
-
-where $H(p)$ represents the binary entropy function.
-
-\\section{Discussion}
-Our findings indicate that quantum-resistant cryptography is not only
-feasible but necessary for future secure communications.
-
-\\section{Conclusion}
-Quantum computing will fundamentally transform cryptographic systems.
-Preparation for post-quantum cryptography is essential.
-
-\\bibliographystyle{plain}
-\\bibliography{references}
-
-\\end{document}`;
+import AIChatSidebar from './components/AIChatSidebar';
 
 export default function EditorPage() {
-  const { projectId } = useParams();
+  const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [compileMenu, setCompileMenu] = useState<null | HTMLElement>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [code] = useState(sampleLatex);
 
-  const handleCompile = () => {
-    console.log('Compiling LaTeX...');
-    setCompileMenu(null);
+  // Editor Ref
+  const editorRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+
+  // PDF State
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isCompiling, setIsCompiling] = useState(false);
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Save State
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch Project Metadata (Title, etc.)
+  const { data: project, isLoading } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectsApi.getProject(projectId!),
+    enabled: !!projectId,
+  });
+
+  // Save Function
+  const saveContent = async (content: string) => {
+    if (!projectId) return;
+    setSaveStatus('saving');
+    try {
+      await projectsApi.updateProject(projectId, { content });
+      setSaveStatus('saved');
+    } catch (error) {
+      console.error('Failed to save:', error);
+      setSaveStatus('unsaved'); // Retry?
+    }
   };
+
+  // Debounced Save Trigger
+  const triggerSave = (content: string) => {
+    setSaveStatus('unsaved');
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveContent(content);
+    }, 2000); // 2 seconds debounce
+  };
+
+  // Initialize CodeMirror + Yjs
+  useEffect(() => {
+    if (!projectId || !editorRef.current) return;
+
+    // 1. Setup Yjs Document & Provider
+    const ydoc = new Y.Doc();
+    // Using localhost:8000 directly for now. In prod, use window.location or env var.
+    const provider = new WebsocketProvider(
+      `ws://localhost:8000/api/v1/editor/${projectId}`, // Base URL
+      'ws', // Room Name (appended to URL -> .../projectId/ws)
+      ydoc,
+    );
+
+    const ytext = ydoc.getText('codemirror');
+
+    // 1.1 Load Initial Content from DB
+    // Since our backend is stateless (for now), we trust the DB content on invalid/first load.
+    // We insert it immediately so it shows up.
+    if (ytext.toString().length === 0 && project?.content) {
+      console.log('Loading initial content from DB...');
+      ydoc.transact(() => {
+        ytext.insert(0, project.content || '');
+      });
+    }
+
+    // 2. Setup CodeMirror
+    const state = EditorState.create({
+      doc: ytext.toString(), // Initial content
+      extensions: [
+        basicSetup,
+        keymap.of(defaultKeymap),
+        markdown(), // Using markdown as syntax highlighter for now
+        oneDark,
+        yCollab(ytext, provider.awareness), // Yjs Collab Extension
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            triggerSave(update.state.doc.toString());
+          }
+        }),
+      ],
+    });
+
+    const view = new EditorView({
+      state,
+      parent: editorRef.current,
+    });
+
+    viewRef.current = view;
+
+    // 3. Cleanup
+    return () => {
+      view.destroy();
+      provider.destroy();
+      ydoc.destroy();
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [projectId, project?.content]); // Re-run if project content loads
+
+  // Auto-compile on load
+  const hasCompiledRef = useRef(false);
+  useEffect(() => {
+    if (projectId && project?.content && !hasCompiledRef.current && viewRef.current) {
+      console.log('Triggering auto-compile on load...');
+      handleCompile();
+      hasCompiledRef.current = true;
+    }
+  }, [projectId, project?.content]);
+
+  // Handle Compile
+  const handleCompile = async () => {
+    if (!projectId) return;
+    setIsCompiling(true);
+    // Force save before compile
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    const content = viewRef.current?.state.doc.toString() || '';
+    await saveContent(content);
+
+    try {
+      const response = await axiosClient.post(
+        `/editor/${projectId}/compile`,
+        { content },
+        { responseType: 'blob' }, // Important for binary data
+      );
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
+    } catch (error) {
+      console.error('Compilation failed:', error);
+      alert('Compilation failed! See console.');
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!project) {
+    return <Typography>Project not found</Typography>;
+  }
 
   return (
     <Box
-      sx={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0F1419' }}
+      sx={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: 'background.default',
+      }}
     >
-      {/* Top Header */}
-      <AppBar position='static' elevation={0} sx={{ backgroundColor: '#1A1F2E', zIndex: 1300 }}>
-        <Toolbar>
+      {/* Toolbar */}
+      <AppBar
+        position='static'
+        color='default'
+        sx={{ borderBottom: 1, borderColor: 'divider', boxShadow: 'none' }}
+      >
+        <Toolbar variant='dense'>
           <IconButton
             edge='start'
             color='inherit'
+            aria-label='menu'
             sx={{ mr: 2 }}
             onClick={() => navigate('/dashboard')}
           >
             <MenuIcon />
           </IconButton>
+          <Typography variant='h6' color='inherit' component='div' sx={{ flexGrow: 1 }}>
+            {project.title}
+          </Typography>
 
-          <Breadcrumbs sx={{ flexGrow: 1 }} separator='›'>
-            <Link
-              underline='hover'
-              color='inherit'
-              sx={{ cursor: 'pointer' }}
-              onClick={() => navigate('/dashboard')}
-            >
-              Projects
-            </Link>
-            <Typography color='text.primary'>Quantum Computing in Cryptography</Typography>
-          </Breadcrumbs>
-
-          <AvatarGroup
-            max={4}
-            sx={{ mr: 3, '& .MuiAvatar-root': { width: 32, height: 32, fontSize: 14 } }}
+          {/* Save Status */}
+          <Typography
+            variant='caption'
+            sx={{ mr: 2, color: 'text.secondary', fontStyle: 'italic' }}
           >
-            <Avatar sx={{ bgcolor: '#10B981' }}>JS</Avatar>
-            <Avatar sx={{ bgcolor: '#3949AB' }}>AM</Avatar>
-            <Avatar sx={{ bgcolor: '#F59E0B' }}>RK</Avatar>
-          </AvatarGroup>
+            {saveStatus === 'saved' && 'All changes saved'}
+            {saveStatus === 'saving' && 'Saving...'}
+            {saveStatus === 'unsaved' && 'Unsaved changes'}
+          </Typography>
+
+          <Button
+            variant='outlined'
+            startIcon={<SmartToyIcon />}
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            sx={{ mr: 2 }}
+          >
+            AI Assistant
+          </Button>
 
           <Button
             variant='contained'
-            startIcon={<PlayArrow />}
-            endIcon={<KeyboardArrowDown />}
-            onClick={(e) => setCompileMenu(e.currentTarget)}
-            sx={{
-              backgroundColor: '#10B981',
-              color: '#fff',
-              fontWeight: 600,
-              px: 3,
-              '&:hover': {
-                backgroundColor: '#059669',
-              },
-            }}
+            color='success'
+            startIcon={isCompiling ? <CircularProgress size={20} color='inherit' /> : <PlayIcon />}
+            onClick={handleCompile}
+            disabled={isCompiling}
           >
-            Recompile
+            {isCompiling ? 'Compiling...' : 'Recompile'}
           </Button>
-
-          <Menu
-            anchorEl={compileMenu}
-            open={Boolean(compileMenu)}
-            onClose={() => setCompileMenu(null)}
-          >
-            <MenuItem onClick={handleCompile}>Recompile from scratch</MenuItem>
-            <MenuItem onClick={handleCompile}>Fast compile</MenuItem>
-            <MenuItem onClick={handleCompile}>Download PDF</MenuItem>
-          </Menu>
-
-          <IconButton color='inherit' sx={{ ml: 1 }} onClick={() => setHistoryOpen(true)}>
-            <History />
-          </IconButton>
-          <IconButton color='inherit' onClick={() => navigate(`/settings/${projectId}`)}>
-            <Settings />
-          </IconButton>
-          <IconButton color='inherit' onClick={() => setChatOpen(!chatOpen)}>
-            <Chat />
-          </IconButton>
         </Toolbar>
       </AppBar>
 
-      {/* Toolbar */}
-      <Box
-        sx={{
-          backgroundColor: '#1A1F2E',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          px: 2,
-          py: 1,
-          display: 'flex',
-          gap: 1,
-        }}
-      >
-        <Tooltip title='Bold'>
-          <IconButton size='small' sx={{ color: 'text.secondary' }}>
-            <FormatBold fontSize='small' />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title='Italic'>
-          <IconButton size='small' sx={{ color: 'text.secondary' }}>
-            <FormatItalic fontSize='small' />
-          </IconButton>
-        </Tooltip>
-        <Divider orientation='vertical' flexItem sx={{ mx: 1 }} />
-        <Tooltip title='Math Formula'>
-          <IconButton size='small' sx={{ color: 'text.secondary' }}>
-            <Functions fontSize='small' />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title='Insert Image'>
-          <IconButton size='small' sx={{ color: 'text.secondary' }}>
-            <ImageIcon fontSize='small' />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title='Citation'>
-          <IconButton size='small' sx={{ color: 'text.secondary' }}>
-            <FormatQuote fontSize='small' />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
-      {/* Main Editor Area */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex' }}>
+      {/* Main Content: Split Pane */}
+      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <Group orientation='horizontal'>
-          {/* Left Pane - Code Editor */}
-          <Panel defaultSize={50} minSize={30}>
+          {/* Panel 1: Editor */}
+          <Panel defaultSize={'50%'} minSize={'33%'} maxSize={'50%'}>
             <Box
               sx={{
                 height: '100%',
-                backgroundColor: '#1E1E1E',
-                overflow: 'auto',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 14,
-              }}
-            >
-              <Box sx={{ p: 2 }}>
-                {code.split('\n').map((line, idx) => (
-                  <Box key={idx} sx={{ display: 'flex', minHeight: 20 }}>
-                    <Box
-                      sx={{
-                        width: 50,
-                        textAlign: 'right',
-                        pr: 2,
-                        color: '#858585',
-                        userSelect: 'none',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {idx + 1}
-                    </Box>
-                    <Box sx={{ color: '#D4D4D4', whiteSpace: 'pre', flexGrow: 1 }}>
-                      {line.includes('\\documentclass') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>\\documentclass</span>
-                          <span style={{ color: '#CE9178' }}>[12pt]</span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#CE9178' }}>article</span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\usepackage') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>{line.split('{')[0]}</span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#CE9178' }}>
-                            {line.split('{')[1]?.replace('}', '')}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\title') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>\\title</span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#CE9178' }}>
-                            {line.split('{')[1]?.replace('}', '')}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\section') && (
-                        <span>
-                          <span style={{ color: '#569CD6' }}>
-                            {line.includes('\\subsection') ? '\\subsection' : '\\section'}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#CE9178' }}>
-                            {line.split('{')[1]?.replace('}', '')}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\begin') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>\\begin</span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#4FC1FF' }}>
-                            {line.split('{')[1]?.replace('}', '')}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\end') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>\\end</span>
-                          <span style={{ color: '#4EC9B0' }}>{'{'}</span>
-                          <span style={{ color: '#4FC1FF' }}>
-                            {line.split('{')[1]?.replace('}', '')}
-                          </span>
-                          <span style={{ color: '#4EC9B0' }}>{'}'}</span>
-                        </span>
-                      )}
-                      {line.includes('\\item') && (
-                        <span>
-                          <span style={{ color: '#C586C0' }}>\\item</span>
-                          <span style={{ color: '#D4D4D4' }}>{line.replace('\\item', '')}</span>
-                        </span>
-                      )}
-                      {!line.includes('\\') && line.trim() !== '' && <span>{line}</span>}
-                      {line.trim() === '' && <span> </span>}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          </Panel>
-
-          <Separator
-            style={{
-              width: '8px',
-              backgroundColor: '#0F1419',
-              cursor: 'col-resize',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Box
-              sx={{
-                width: '2px',
-                height: '40px',
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                borderRadius: '2px',
-              }}
-            />
-          </Separator>
-
-          {/* Right Pane - PDF Preview */}
-          <Panel defaultSize={50} minSize={30}>
-            <Box
-              sx={{
-                height: '100%',
-                backgroundColor: '#525659',
-                overflow: 'auto',
+                overflow: 'hidden',
                 display: 'flex',
-                justifyContent: 'center',
-                p: 4,
+                flexDirection: 'column',
               }}
             >
-              <Paper
+              <Box
+                ref={editorRef}
                 sx={{
-                  width: '100%',
-                  maxWidth: 800,
-                  minHeight: '100%',
-                  backgroundColor: '#fff',
-                  color: '#000',
-                  p: 6,
-                  fontFamily: 'serif',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  flexGrow: 1,
+                  overflow: 'auto',
+                  '& .cm-editor': { height: '100%' },
+                  '& .cm-scroller': { overflow: 'auto' },
                 }}
-              >
-                <Typography
-                  variant='h4'
-                  align='center'
-                  sx={{ fontWeight: 700, mb: 1, color: '#000' }}
-                >
-                  Quantum Computing Applications in Cryptography
-                </Typography>
-                <Typography variant='body1' align='center' sx={{ mb: 0.5, color: '#000' }}>
-                  Dr. Jane Smith, Dr. Alex Martinez
-                </Typography>
-                <Typography variant='body2' align='center' sx={{ mb: 4, color: '#000' }}>
-                  February 2026
-                </Typography>
-
-                <Typography variant='h6' sx={{ fontWeight: 700, mb: 2, color: '#000' }}>
-                  Abstract
-                </Typography>
-                <Typography paragraph sx={{ textAlign: 'justify', color: '#000' }}>
-                  This paper explores the revolutionary applications of quantum computing in modern
-                  cryptographic systems. We present novel approaches to post-quantum cryptography
-                  and analyze their efficiency compared to classical methods.
-                </Typography>
-
-                <Typography variant='h6' sx={{ fontWeight: 700, mt: 3, mb: 2, color: '#000' }}>
-                  1. Introduction
-                </Typography>
-                <Typography paragraph sx={{ textAlign: 'justify', color: '#000' }}>
-                  Quantum computing represents a paradigm shift in computational power. The ability
-                  to leverage quantum superposition and entanglement opens new possibilities for
-                  both breaking and creating cryptographic systems.
-                </Typography>
-
-                <Typography
-                  variant='subtitle1'
-                  sx={{ fontWeight: 600, mt: 2, mb: 1, color: '#000' }}
-                >
-                  1.1 Background
-                </Typography>
-                <Typography paragraph sx={{ textAlign: 'justify', color: '#000' }}>
-                  Classical cryptography relies on computational complexity. However, Shor's
-                  algorithm demonstrates that quantum computers can factor large numbers
-                  exponentially faster than classical computers [1].
-                </Typography>
-
-                <Typography variant='h6' sx={{ fontWeight: 700, mt: 3, mb: 2, color: '#000' }}>
-                  2. Methodology
-                </Typography>
-                <Typography paragraph sx={{ textAlign: 'justify', color: '#000' }}>
-                  We implement our quantum algorithms using the following approach:
-                </Typography>
-                <Box sx={{ my: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-                  <Typography
-                    align='center'
-                    sx={{ fontFamily: 'serif', fontStyle: 'italic', color: '#000' }}
-                  >
-                    H|0⟩ = 1/√2(|0⟩ + |1⟩)
-                  </Typography>
-                </Box>
-                <Typography paragraph sx={{ textAlign: 'justify', color: '#000' }}>
-                  This Hadamard gate creates superposition, fundamental to quantum computation.
-                </Typography>
-              </Paper>
+              />
             </Box>
           </Panel>
+
+          <Separator style={{ border: '1px solid #ccc' }} />
+
+          {/* Panel 2: PDF */}
+          <Panel defaultSize={'50%'} minSize={'33%'}>
+            <Box
+              sx={{
+                height: '100%',
+                bgcolor: '#525659',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {pdfUrl ? (
+                <iframe
+                  src={pdfUrl}
+                  title='PDF Preview'
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    color: 'white',
+                  }}
+                >
+                  <Typography>Click "Recompile" to generate PDF</Typography>
+                </Box>
+              )}
+            </Box>
+          </Panel>
+
+          {/* Panel 3: Chat (Conditional) */}
+          {isChatOpen && (
+            <>
+              <Separator style={{ border: '1px solid #ccc' }} />
+              <Panel defaultSize={500} minSize={350} maxSize={800}>
+                <AIChatSidebar
+                  open={isChatOpen}
+                  onClose={() => setIsChatOpen(false)}
+                  projectId={projectId!}
+                  getContext={() => viewRef.current?.state.doc.toString() || ''}
+                />
+              </Panel>
+            </>
+          )}
         </Group>
-
-        {/* AI Chat Sidebar */}
-        {chatOpen && (
-          <Box sx={{ width: 360, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-            <AIChatSidebar onClose={() => setChatOpen(false)} />
-          </Box>
-        )}
       </Box>
-
-      {/* Version History Drawer */}
-      <Drawer anchor='right' open={historyOpen} onClose={() => setHistoryOpen(false)}>
-        <VersionHistory onClose={() => setHistoryOpen(false)} />
-      </Drawer>
     </Box>
   );
 }

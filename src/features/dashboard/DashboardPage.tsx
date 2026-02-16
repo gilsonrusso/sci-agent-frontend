@@ -8,7 +8,6 @@ import {
   Typography,
   Chip,
   Avatar,
-  AvatarGroup,
   LinearProgress,
   Drawer,
   List,
@@ -21,6 +20,13 @@ import {
   IconButton,
   Paper,
   Grid,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress,
 } from '@mui/material';
 import {
   Description,
@@ -42,57 +48,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-
-const mockProjects = [
-  {
-    id: 1,
-    title: 'Quantum Computing Applications in Cryptography',
-    status: 'Draft',
-    progress: 65,
-    lastModified: '2 hours ago',
-    team: ['JS', 'AM', 'RK'],
-  },
-  {
-    id: 2,
-    title: 'Machine Learning for Climate Prediction',
-    status: 'Review',
-    progress: 85,
-    lastModified: '1 day ago',
-    team: ['EM', 'TC'],
-  },
-  {
-    id: 3,
-    title: 'Neural Network Optimization Techniques',
-    status: 'Submitted',
-    progress: 100,
-    lastModified: '3 days ago',
-    team: ['JS', 'PL', 'KM', 'AN'],
-  },
-  {
-    id: 4,
-    title: 'Bioinformatics: Gene Expression Analysis',
-    status: 'Draft',
-    progress: 42,
-    lastModified: '5 hours ago',
-    team: ['RK', 'HS'],
-  },
-  {
-    id: 5,
-    title: 'Renewable Energy Grid Optimization',
-    status: 'Review',
-    progress: 78,
-    lastModified: '2 days ago',
-    team: ['TC', 'JS'],
-  },
-  {
-    id: 6,
-    title: 'Natural Language Processing Survey',
-    status: 'Draft',
-    progress: 35,
-    lastModified: '1 hour ago',
-    team: ['AM', 'PL'],
-  },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { projectsApi, type ProjectCreate } from './projectsApi';
 
 const mockTasks = [
   { id: 1, title: 'Review Methodology section', project: 'Quantum Computing', priority: 'high' },
@@ -115,19 +72,37 @@ const chartData = [
 export default function DashboardPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('Projects');
-  const navigate = useNavigate();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Draft':
-        return 'warning';
-      case 'Review':
-        return 'info';
-      case 'Submitted':
-        return 'success';
-      default:
-        return 'default';
-    }
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Fetch Projects
+  const { data: projects, isLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.getProjects,
+  });
+
+  // Create Project Mutation
+  const createProjectMutation = useMutation({
+    mutationFn: (data: ProjectCreate) => projectsApi.createProject(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setCreateDialogOpen(false);
+      setNewProjectTitle('');
+      setNewProjectDescription('');
+    },
+  });
+
+  const handleCreateProject = () => {
+    if (!newProjectTitle.trim()) return;
+    createProjectMutation.mutate({
+      title: newProjectTitle,
+      description: newProjectDescription,
+      content: '', // Start empty
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -241,10 +216,11 @@ export default function DashboardPage() {
                 Welcome back, Dr. Smith
               </Typography>
               <Typography variant='body1' color='text.secondary'>
-                You have 3 active projects and 4 pending tasks
+                You have {projects?.length || 0} active projects and 4 pending tasks
               </Typography>
             </Box>
             <IconButton
+              onClick={() => setCreateDialogOpen(true)}
               sx={{
                 backgroundColor: '#10B981',
                 color: '#fff',
@@ -284,88 +260,83 @@ export default function DashboardPage() {
               <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
                 Active Projects
               </Typography>
-              <Grid container spacing={3}>
-                {mockProjects.map((project) => (
-                  <Grid size={{ xs: 12, sm: 6 }} key={project.id}>
-                    <Card
-                      sx={{
-                        backgroundColor: '#1A1F2E',
-                        '&:hover': {
-                          backgroundColor: '#212838',
-                          transform: 'translateY(-4px)',
-                          transition: 'all 0.3s ease',
-                        },
-                      }}
-                    >
-                      <CardActionArea onClick={() => navigate(`/editor/${project.id}`)}>
-                        <CardContent>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'start',
-                              mb: 2,
-                            }}
-                          >
-                            <Chip
-                              label={project.status}
-                              color={
-                                getStatusColor(project.status) as
-                                  | 'default'
-                                  | 'primary'
-                                  | 'secondary'
-                                  | 'error'
-                                  | 'info'
-                                  | 'success'
-                                  | 'warning'
-                              }
-                              size='small'
-                            />
-                            <AvatarGroup
-                              max={3}
-                              sx={{ '& .MuiAvatar-root': { width: 28, height: 28, fontSize: 12 } }}
-                            >
-                              {project.team.map((member, idx) => (
-                                <Avatar key={idx} sx={{ bgcolor: '#3949AB' }}>
-                                  {member}
-                                </Avatar>
-                              ))}
-                            </AvatarGroup>
-                          </Box>
-                          <Typography variant='h6' sx={{ mb: 2, fontWeight: 500 }}>
-                            {project.title}
-                          </Typography>
-                          <Box sx={{ mb: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                              <Typography variant='caption' color='text.secondary'>
-                                Progress
-                              </Typography>
-                              <Typography variant='caption' color='text.secondary'>
-                                {project.progress}%
-                              </Typography>
-                            </Box>
-                            <LinearProgress
-                              variant='determinate'
-                              value={project.progress}
+
+              {isLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={3}>
+                  {projects?.map((project) => (
+                    <Grid size={{ xs: 12, sm: 6 }} key={project.id}>
+                      <Card
+                        sx={{
+                          backgroundColor: '#1A1F2E',
+                          '&:hover': {
+                            backgroundColor: '#212838',
+                            transform: 'translateY(-4px)',
+                            transition: 'all 0.3s ease',
+                          },
+                        }}
+                      >
+                        <CardActionArea onClick={() => navigate(`/editor/${project.id}`)}>
+                          <CardContent>
+                            <Box
                               sx={{
-                                height: 6,
-                                borderRadius: 3,
-                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                '& .MuiLinearProgress-bar': {
-                                  backgroundColor: '#10B981',
-                                },
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'start',
+                                mb: 2,
                               }}
-                            />
-                          </Box>
-                          <Typography variant='caption' color='text.secondary'>
-                            Last modified: {project.lastModified}
-                          </Typography>
-                        </CardContent>
-                      </CardActionArea>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+                            >
+                              <Chip label='Draft' color='warning' size='small' />
+                            </Box>
+                            <Typography variant='h6' sx={{ mb: 2, fontWeight: 500 }}>
+                              {project.title}
+                            </Typography>
+                            <Box sx={{ mb: 1 }}>
+                              <Typography
+                                variant='body2'
+                                color='text.secondary'
+                                sx={{
+                                  mb: 1,
+                                  height: 40,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {project.description || 'No description provided.'}
+                              </Typography>
+                              <LinearProgress
+                                variant='determinate'
+                                value={30} // Placeholder progress/status
+                                sx={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  backgroundColor: 'rgba(255,255,255,0.1)',
+                                  '& .MuiLinearProgress-bar': {
+                                    backgroundColor: '#10B981',
+                                  },
+                                }}
+                              />
+                            </Box>
+                            <Typography variant='caption' color='text.secondary'>
+                              Last modified: {new Date(project.updated_at).toLocaleDateString()}
+                            </Typography>
+                          </CardContent>
+                        </CardActionArea>
+                      </Card>
+                    </Grid>
+                  ))}
+                  {projects?.length === 0 && (
+                    <Box sx={{ p: 4, width: '100%', textAlign: 'center' }}>
+                      <Typography color='text.secondary'>
+                        No projects found. Create one to get started!
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+              )}
             </Grid>
 
             {/* Tasks Sidebar */}
@@ -398,6 +369,42 @@ export default function DashboardPage() {
           </Grid>
         </Box>
       </Box>
+
+      {/* Create Project Dialog */}
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)}>
+        <DialogTitle>Create New Project</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin='dense'
+            label='Project Title'
+            fullWidth
+            variant='outlined'
+            value={newProjectTitle}
+            onChange={(e) => setNewProjectTitle(e.target.value)}
+          />
+          <TextField
+            margin='dense'
+            label='Description'
+            fullWidth
+            variant='outlined'
+            multiline
+            rows={4}
+            value={newProjectDescription}
+            onChange={(e) => setNewProjectDescription(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleCreateProject}
+            variant='contained'
+            disabled={createProjectMutation.isPending || !newProjectTitle}
+          >
+            {createProjectMutation.isPending ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
