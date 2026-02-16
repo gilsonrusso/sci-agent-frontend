@@ -1,72 +1,58 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { Science } from '@mui/icons-material';
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  TextField,
-  Button,
-  Typography,
-  Divider,
+  CircularProgress,
   Tab,
   Tabs,
-  Alert,
-  CircularProgress,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { Google, GitHub, Science } from '@mui/icons-material';
-import { authApi } from './authApi';
-import { AxiosError } from 'axios';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { loginUser, registerUser, clearError } from '../../store/slices/authSlice';
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState(0);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const { isLoading: loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      if (activeTab === 0) {
-        // Login
-        const response = await authApi.login({ username: email, password });
-        localStorage.setItem('access_token', response.access_token);
-        navigate('/dashboard');
-      } else {
-        // Register
-        if (password !== confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
-        await authApi.register({ email, password });
-        // Auto login after register or ask user to login?
-        // Let's auto login for better UX
-        const response = await authApi.login({ username: email, password });
-        localStorage.setItem('access_token', response.access_token);
-        navigate('/dashboard');
-      }
-    } catch (err) {
-      console.error('Auth error:', err);
-      if (err instanceof AxiosError) {
-        setError(err.response?.data?.detail || 'Authentication failed');
-      } else {
-        setError('An unexpected error occurred');
-      }
-    } finally {
-      setLoading(false);
+  // Redirect if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
     }
-  };
+  }, [isAuthenticated, navigate]);
 
-  const handleSocialAuth = (provider: string) => {
-    console.log(`Authenticating with ${provider}`);
-    // Future implementation
+  // Clear error on tab switch
+  useEffect(() => {
+    dispatch(clearError());
+  }, [activeTab, dispatch]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (activeTab === 0) {
+      dispatch(loginUser({ username: email, password }));
+    } else {
+      if (password !== confirmPassword) {
+        // We can dispatch a manual error or just set a local one,
+        // but for simplicity let's rely on standard flow.
+        // Or strictly strictly:
+        alert('Passwords do not match');
+        return;
+      }
+      dispatch(registerUser({ email, password, full_name: '' }));
+    }
   };
 
   return (
@@ -177,9 +163,10 @@ export default function AuthPage() {
               <Tab label='Register' />
             </Tabs>
 
+            {/* Error Display */}
             {error && (
               <Alert severity='error' sx={{ mb: 3 }}>
-                {error}
+                {typeof error === 'string' ? error : 'Authentication failed'}
               </Alert>
             )}
 
@@ -252,35 +239,6 @@ export default function AuthPage() {
                   'Create Account'
                 )}
               </Button>
-
-              <Divider sx={{ mb: 3 }}>
-                <Typography variant='body2' color='text.secondary'>
-                  OR
-                </Typography>
-              </Divider>
-
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  startIcon={<Google />}
-                  onClick={() => handleSocialAuth('Google')}
-                  sx={{ py: 1.5 }}
-                  disabled={loading}
-                >
-                  Google
-                </Button>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  startIcon={<GitHub />}
-                  onClick={() => handleSocialAuth('GitHub')}
-                  sx={{ py: 1.5 }}
-                  disabled={loading}
-                >
-                  GitHub
-                </Button>
-              </Box>
             </Box>
           </CardContent>
         </Card>

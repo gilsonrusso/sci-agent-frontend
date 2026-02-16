@@ -1,9 +1,26 @@
 import { Navigate, Outlet } from 'react-router';
+import { useAppSelector } from '../store/hooks';
+import { Box, CircularProgress } from '@mui/material';
 
 export const ProtectedRoute = () => {
-  const token = localStorage.getItem('access_token');
+  const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
 
-  if (!token) {
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
     return <Navigate to='/' replace />;
   }
 
