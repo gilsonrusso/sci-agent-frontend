@@ -32,6 +32,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ProjectRole, projectsApi } from '../dashboard/projectsApi';
+import type { AxiosError } from 'axios';
 
 export default function ProjectSettingsPage() {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ export default function ProjectSettingsPage() {
 
   const queryClient = useQueryClient();
 
-  const { data: members, isLoading: _isLoadingMembers } = useQuery({
+  const { data: members } = useQuery({
     queryKey: ['projectMembers', projectId],
     queryFn: () => projectsApi.getMembers(projectId!),
     enabled: !!projectId,

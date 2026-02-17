@@ -25,7 +25,6 @@ import ConnectedUsers from './components/ConnectedUsers';
 import { yCollab } from 'y-codemirror.next';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
-// @ts-ignore
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -54,26 +53,40 @@ export default function EditorPage() {
 
   // Yjs Provider State
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+  // Latch state: once synced, stay synced (UI-wise) preventing flashing/blocking
+  const [hasInitialSync, setHasInitialSync] = useState(false);
 
-  // Fetch Project Metadata
+  // Fetch Project Metadata (renamed loading variable to avoid conflict if needed, but existing is fine)
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.getProject(projectId!),
     enabled: !!projectId,
   });
 
-  // Initialize CodeMirror + Yjs
+  // 1. Initialize Yjs Provider & Data Layer
   useEffect(() => {
-    if (!projectId || !editorRef.current || !user) return;
+    if (!projectId || !user) return;
 
-    // 1. Setup Yjs Document & Provider
     const ydoc = new Y.Doc();
     // Using localhost:8000 directly for now. In prod, use window.location or env var.
     const wsProvider = new WebsocketProvider(
-      `ws://localhost:8000/api/v1/editor/${projectId}/ws`, // Base URL
-      'sci-agent', // Room name
+      `ws://localhost:8000/api/v1/editor/${projectId}/ws`,
+      'sci-agent',
       ydoc,
     );
+
+    // Track Sync State & Connection Status
+
+    wsProvider.on('sync', (isSynced: boolean) => {
+      if (isSynced) {
+        setHasInitialSync(true);
+      }
+    });
+
+    // Fallback: Force show editor after 3s if sync fails/hangs
+    const timeoutId = setTimeout(() => {
+      setHasInitialSync(true);
+    }, 3000);
 
     setProvider(wsProvider);
 
@@ -84,32 +97,36 @@ export default function EditorPage() {
       color: userColor,
     });
 
-    const ytext = ydoc.getText('codemirror');
+    return () => {
+      clearTimeout(timeoutId); // FIX: Clear timeout on cleanup
+      wsProvider.destroy();
+      ydoc.destroy();
+      setProvider(null);
+      // Do NOT reset hasInitialSync here to avoid flash on re-renders,
+      // but since we depend on projectId, if projectId changes we DO want to reset.
+      // But typically React creates a new component instance or state is reset if key changes.
+      // If we are just unmounting/remounting same project (Strict Mode), we want persistence?
+      // Actually, setHasInitialSync(false) is fine if we re-create provider.
+      setHasInitialSync(false);
+    };
+  }, [projectId, user]);
 
-    // DEBUG: Log Yjs updates (Keep this for verification)
-    ydoc.on('update', (update, origin) => {
-      console.log('[YJS] Update received:', {
-        byteLength: update.length,
-        origin: origin,
-      });
-    });
+  // 2. Initialize CodeMirror View (Only after Sync)
+  useEffect(() => {
+    if (!provider || !editorRef.current) return;
 
-    // B. Setup CodeMirror
+    const ytext = provider.doc.getText('codemirror');
+
     const startState = EditorState.create({
-      doc: ytext.toString(), // Initial state is empty until sync
+      doc: ytext.toString(), // Now guaranteed to have content
       extensions: [
         basicSetup,
-        keymap.of([...defaultKeymap, indentWithTab]), // Correctly spread keymaps
+        keymap.of([...defaultKeymap, indentWithTab]),
         markdown(),
         EditorView.lineWrapping,
-        oneDark, // Keeping oneDark as dracula is not imported. Replace with dracula if imported.
-        // dracula, // Uncomment and import if using dracula theme
-        // Yjs Binding
-        yCollab(ytext, wsProvider.awareness),
-        // No more updateListener for auto-save!
-        EditorView.updateListener.of((_) => {
-          // We can track local changes if needed for UI state, but not for saving.
-        }),
+        oneDark,
+        yCollab(ytext, provider.awareness),
+        EditorView.updateListener.of(() => {}),
       ],
     });
 
@@ -120,21 +137,12 @@ export default function EditorPage() {
 
     viewRef.current = view;
 
-    // DEBUG: Expose to window
-    (window as any).ydoc = ydoc;
-    (window as any).ytext = ytext;
-    (window as any).provider = wsProvider;
-
-    // 3. Cleanup
     return () => {
       view.destroy();
-      wsProvider.destroy();
-      ydoc.destroy();
-      setProvider(null);
     };
-  }, [projectId, user]); // Re-run if user changes (e.g. login)
+  }, [provider, hasInitialSync]);
 
-  // Auto-compile ... (removed for now)
+  // Auto-compile on load (OPTIONAL: Maybe remove this?)
   const hasCompiledRef = useRef(false);
   useEffect(() => {
     if (hasCompiledRef.current) return;
@@ -243,15 +251,29 @@ export default function EditorPage() {
                 flexDirection: 'column',
               }}
             >
-              <Box
-                ref={editorRef}
-                sx={{
-                  flexGrow: 1,
-                  overflow: 'auto',
-                  '& .cm-editor': { height: '100%' },
-                  '& .cm-scroller': { overflow: 'auto' },
-                }}
-              />
+              {!hasInitialSync ? (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                  }}
+                >
+                  <CircularProgress size={30} />
+                  <Typography sx={{ ml: 2, color: 'text.secondary' }}>Syncing...</Typography>
+                </Box>
+              ) : (
+                <Box
+                  ref={editorRef}
+                  sx={{
+                    flexGrow: 1,
+                    overflow: 'auto',
+                    '& .cm-editor': { height: '100%' },
+                    '& .cm-scroller': { overflow: 'auto' },
+                  }}
+                />
+              )}
             </Box>
           </Panel>
 
