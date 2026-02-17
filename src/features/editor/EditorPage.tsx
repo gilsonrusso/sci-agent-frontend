@@ -16,7 +16,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useNavigate, useParams } from 'react-router';
-import { axiosClient } from '../../api/axiosClient';
 import { projectsApi } from '../dashboard/projectsApi';
 
 // CodeMirror & Yjs
@@ -30,7 +29,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 
-import { defaultKeymap } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 
 import AIChatSidebar from './components/AIChatSidebar';
 
@@ -49,40 +48,15 @@ export default function EditorPage() {
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Save State
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Save State - REMOVED (Server-Authoritative)
+  // const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
-  // Fetch Project Metadata (Title, etc.)
+  // Fetch Project Metadata
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.getProject(projectId!),
     enabled: !!projectId,
   });
-
-  // Save Function
-  const saveContent = async (content: string) => {
-    if (!projectId) return;
-    setSaveStatus('saving');
-    try {
-      await projectsApi.updateProject(projectId, { content });
-      setSaveStatus('saved');
-    } catch (error) {
-      console.error('Failed to save:', error);
-      setSaveStatus('unsaved'); // Retry?
-    }
-  };
-
-  // Debounced Save Trigger
-  const triggerSave = (content: string) => {
-    setSaveStatus('unsaved');
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    saveTimeoutRef.current = setTimeout(() => {
-      saveContent(content);
-    }, 2000); // 2 seconds debounce
-  };
 
   // Initialize CodeMirror + Yjs
   useEffect(() => {
@@ -92,85 +66,90 @@ export default function EditorPage() {
     const ydoc = new Y.Doc();
     // Using localhost:8000 directly for now. In prod, use window.location or env var.
     const provider = new WebsocketProvider(
-      `ws://localhost:8000/api/v1/editor/${projectId}`, // Base URL
-      'ws', // Room Name (appended to URL -> .../projectId/ws)
+      `ws://localhost:8000/api/v1/editor/${projectId}/ws`, // Base URL
+      'sci-agent', // Room name (ignored by our custom endpoint? or connection param?)
       ydoc,
     );
 
     const ytext = ydoc.getText('codemirror');
 
-    // 1.1 Load Initial Content from DB
-    // Since our backend is stateless (for now), we trust the DB content on invalid/first load.
-    // We insert it immediately so it shows up.
-    if (ytext.toString().length === 0 && project?.content) {
-      console.log('Loading initial content from DB...');
-      ydoc.transact(() => {
-        ytext.insert(0, project.content || '');
+    // DEBUG: Log Yjs updates (Keep this for verification)
+    ydoc.on('update', (update, origin) => {
+      console.log('[YJS] Update received:', {
+        byteLength: update.length,
+        origin: origin,
       });
-    }
+    });
 
-    // 2. Setup CodeMirror
-    const state = EditorState.create({
-      doc: ytext.toString(), // Initial content
+    // B. Setup CodeMirror
+    const startState = EditorState.create({
+      doc: ytext.toString(), // Initial state is empty until sync
       extensions: [
         basicSetup,
-        keymap.of(defaultKeymap),
-        markdown(), // Using markdown as syntax highlighter for now
-        oneDark,
-        yCollab(ytext, provider.awareness), // Yjs Collab Extension
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            triggerSave(update.state.doc.toString());
-          }
+        keymap.of([...defaultKeymap, indentWithTab]), // Correctly spread keymaps
+        markdown(),
+        EditorView.lineWrapping,
+        oneDark, // Keeping oneDark as dracula is not imported. Replace with dracula if imported.
+        // dracula, // Uncomment and import if using dracula theme
+        // Yjs Binding
+        yCollab(ytext, provider.awareness),
+        // No more updateListener for auto-save!
+        EditorView.updateListener.of((_) => {
+          // We can track local changes if needed for UI state, but not for saving.
         }),
       ],
     });
 
     const view = new EditorView({
-      state,
-      parent: editorRef.current,
+      state: startState,
+      parent: editorRef.current!,
     });
 
     viewRef.current = view;
+
+    // DEBUG: Expose to window
+    (window as any).ydoc = ydoc;
+    (window as any).ytext = ytext;
+    (window as any).provider = provider;
 
     // 3. Cleanup
     return () => {
       view.destroy();
       provider.destroy();
       ydoc.destroy();
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      // if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); // Removed auto-save cleanup
     };
-  }, [projectId, project?.content]); // Re-run if project content loads
+  }, [projectId]); // Stable dependency
 
-  // Auto-compile on load
+  // Auto-compile on load (OPTIONAL: Maybe remove this?)
+  // If we want auto-compile, we should wait until Yjs is synced.
+  // provider.on('synced') -> compile.
   const hasCompiledRef = useRef(false);
   useEffect(() => {
-    if (projectId && project?.content && !hasCompiledRef.current && viewRef.current) {
-      console.log('Triggering auto-compile on load...');
-      handleCompile();
-      hasCompiledRef.current = true;
-    }
-  }, [projectId, project?.content]);
+    if (hasCompiledRef.current) return;
+    // We can listen to sync event
+    // But for now, let's just leave it manual or simple.
+  }, []);
 
   // Handle Compile
   const handleCompile = async () => {
     if (!projectId) return;
     setIsCompiling(true);
-    // Force save before compile
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    const content = viewRef.current?.state.doc.toString() || '';
-    await saveContent(content);
+    // Force save before compile - REMOVED AUTO-SAVE
+    // if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    // const content = viewRef.current?.state.doc.toString() || '';
+    // await saveContent(content);
 
     try {
-      const response = await axiosClient.post(
-        `/editor/${projectId}/compile`,
-        { content },
-        { responseType: 'blob' }, // Important for binary data
-      );
+      // Call API without content parameter, backend fetches from Yjs
+      const pdfBlob = await projectsApi.compileProject(projectId, '');
+      const url = URL.createObjectURL(pdfBlob);
 
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
+      // Revoke old URL to fix memory leak
+      setPdfUrl((oldUrl) => {
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        return url;
+      });
     } catch (error) {
       console.error('Compilation failed:', error);
       alert('Compilation failed! See console.');
@@ -222,15 +201,7 @@ export default function EditorPage() {
             {project.title}
           </Typography>
 
-          {/* Save Status */}
-          <Typography
-            variant='caption'
-            sx={{ mr: 2, color: 'text.secondary', fontStyle: 'italic' }}
-          >
-            {saveStatus === 'saved' && 'All changes saved'}
-            {saveStatus === 'saving' && 'Saving...'}
-            {saveStatus === 'unsaved' && 'Unsaved changes'}
-          </Typography>
+          {/* Save Status - REMOVED */}
 
           <Button
             variant='outlined'

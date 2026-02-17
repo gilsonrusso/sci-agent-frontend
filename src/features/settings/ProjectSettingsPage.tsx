@@ -1,79 +1,81 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { ArrowBack, Delete, PersonAdd, Save } from '@mui/icons-material';
 import {
-  Box,
+  Alert,
   AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
-  Paper,
-  TextField,
+  Avatar,
+  Box,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  MenuItem,
+  Paper,
+  Select,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Avatar,
-  Select,
-  MenuItem,
-  Chip,
   Tabs,
-  Tab,
-  Divider,
+  TextField,
+  Toolbar,
+  Typography,
+  Autocomplete,
 } from '@mui/material';
-import { ArrowBack, PersonAdd, Delete, Save } from '@mui/icons-material';
-
-interface TeamMember {
-  id: number;
-  name: string;
-  email: string;
-  role: 'Student' | 'Mentor' | 'Manager';
-  avatar: string;
-  joinedDate: string;
-}
-
-const mockTeam: TeamMember[] = [
-  {
-    id: 1,
-    name: 'Dr. Jane Smith',
-    email: 'jane.smith@university.edu',
-    role: 'Manager',
-    avatar: 'JS',
-    joinedDate: 'Jan 10, 2026',
-  },
-  {
-    id: 2,
-    name: 'Dr. Alex Martinez',
-    email: 'alex.martinez@university.edu',
-    role: 'Mentor',
-    avatar: 'AM',
-    joinedDate: 'Jan 12, 2026',
-  },
-  {
-    id: 3,
-    name: 'Rachel Kim',
-    email: 'rachel.kim@university.edu',
-    role: 'Student',
-    avatar: 'RK',
-    joinedDate: 'Jan 15, 2026',
-  },
-  {
-    id: 4,
-    name: 'Emily Thompson',
-    email: 'emily.thompson@university.edu',
-    role: 'Student',
-    avatar: 'ET',
-    joinedDate: 'Feb 1, 2026',
-  },
-];
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { ProjectRole, projectsApi } from '../dashboard/projectsApi';
 
 export default function ProjectSettingsPage() {
   const navigate = useNavigate();
-  const { projectId } = useParams();
+  const { id: projectId } = useParams();
   const [activeTab, setActiveTab] = useState(0);
-  const [team, setTeam] = useState<TeamMember[]>(mockTeam);
+  const [emailToInvite, setEmailToInvite] = useState('');
+  const [roleToInvite, setRoleToInvite] = useState<ProjectRole>(ProjectRole.VIEWER);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
+
+  const { data: members, isLoading: _isLoadingMembers } = useQuery({
+    queryKey: ['projectMembers', projectId],
+    queryFn: () => projectsApi.getMembers(projectId!),
+    enabled: !!projectId,
+  });
+
+  const { data: users, isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: projectsApi.getUsers,
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: (data: { email: string; role: ProjectRole }) =>
+      projectsApi.addMember(projectId!, data.email, data.role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projectMembers', projectId] });
+      setIsInviteOpen(false);
+      setEmailToInvite('');
+      setInviteError(null);
+    },
+    onError: (error: any) => {
+      setInviteError(error.response?.data?.detail || 'Failed to add member');
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (userId: string) => projectsApi.removeMember(projectId!, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projectMembers', projectId] });
+    },
+  });
+
   const [projectInfo, setProjectInfo] = useState({
     title: 'Quantum Computing Applications in Cryptography',
     description: 'Research on post-quantum cryptography methods',
@@ -82,12 +84,14 @@ export default function ProjectSettingsPage() {
     keywords: 'quantum computing, cryptography, post-quantum',
   });
 
-  const handleRoleChange = (memberId: number, newRole: TeamMember['role']) => {
-    setTeam(team.map((member) => (member.id === memberId ? { ...member, role: newRole } : member)));
+  const handleAddMember = () => {
+    addMemberMutation.mutate({ email: emailToInvite, role: roleToInvite });
   };
 
-  const handleRemoveMember = (memberId: number) => {
-    setTeam(team.filter((member) => member.id !== memberId));
+  const handleRemoveMember = (userId: string) => {
+    if (confirm('Are you sure you want to remove this member?')) {
+      removeMemberMutation.mutate(userId);
+    }
   };
 
   return (
@@ -95,7 +99,7 @@ export default function ProjectSettingsPage() {
       {/* Top AppBar */}
       <AppBar position='static' elevation={0} sx={{ backgroundColor: '#1A1F2E' }}>
         <Toolbar>
-          <IconButton edge='start' color='inherit' onClick={() => navigate(`/editor/${projectId}`)}>
+          <IconButton edge='start' color='inherit' onClick={() => navigate(`/dashboard`)}>
             <ArrowBack />
           </IconButton>
           <Typography variant='h6' sx={{ flexGrow: 1, ml: 2 }}>
@@ -207,6 +211,7 @@ export default function ProjectSettingsPage() {
                     variant='contained'
                     startIcon={<PersonAdd />}
                     sx={{ backgroundColor: '#3949AB' }}
+                    onClick={() => setIsInviteOpen(true)}
                   >
                     Invite Member
                   </Button>
@@ -219,48 +224,39 @@ export default function ProjectSettingsPage() {
                         <TableCell>Member</TableCell>
                         <TableCell>Email</TableCell>
                         <TableCell>Role</TableCell>
-                        <TableCell>Joined</TableCell>
                         <TableCell align='right'>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {team.map((member) => (
-                        <TableRow key={member.id} hover>
+                      {members?.map((member) => (
+                        <TableRow key={member.user_id} hover>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Avatar sx={{ bgcolor: '#3949AB' }}>{member.avatar}</Avatar>
-                              <Typography variant='body2'>{member.name}</Typography>
+                              <Avatar sx={{ bgcolor: '#3949AB' }}>
+                                {member.user_full_name?.charAt(0) || member.user_email.charAt(0)}
+                              </Avatar>
+                              <Typography variant='body2'>
+                                {member.user_full_name || 'Unknown'}
+                              </Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
                             <Typography variant='body2' color='text.secondary'>
-                              {member.email}
+                              {member.user_email}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Select
+                            <Chip
                               size='small'
-                              value={member.role}
-                              onChange={(e) =>
-                                handleRoleChange(member.id, e.target.value as TeamMember['role'])
-                              }
-                              sx={{ minWidth: 120 }}
-                            >
-                              <MenuItem value='Student'>Student</MenuItem>
-                              <MenuItem value='Mentor'>Mentor</MenuItem>
-                              <MenuItem value='Manager'>Manager</MenuItem>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant='body2' color='text.secondary'>
-                              {member.joinedDate}
-                            </Typography>
+                              label={member.role}
+                              color={member.role === ProjectRole.OWNER ? 'error' : 'default'}
+                            />
                           </TableCell>
                           <TableCell align='right'>
                             <IconButton
                               size='small'
-                              onClick={() => handleRemoveMember(member.id)}
-                              disabled={member.role === 'Manager'}
+                              onClick={() => handleRemoveMember(member.user_id)}
+                              disabled={member.role === ProjectRole.OWNER}
                             >
                               <Delete fontSize='small' />
                             </IconButton>
@@ -271,6 +267,59 @@ export default function ProjectSettingsPage() {
                   </Table>
                 </TableContainer>
 
+                <Dialog open={isInviteOpen} onClose={() => setIsInviteOpen(false)}>
+                  <DialogTitle>Invite Member</DialogTitle>
+                  <DialogContent>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        mt: 1,
+                        minWidth: 300,
+                      }}
+                    >
+                      {inviteError && <Alert severity='error'>{inviteError}</Alert>}
+                      <Autocomplete
+                        options={users || []}
+                        getOptionLabel={(option) =>
+                          `${option.full_name || 'Unknown'} (${option.email})`
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label='Search User to Invite'
+                            variant='outlined'
+                            fullWidth
+                          />
+                        )}
+                        value={users?.find((u) => u.email === emailToInvite) || null}
+                        onChange={(_, newValue) => setEmailToInvite(newValue?.email || '')}
+                        loading={isLoadingUsers}
+                      />
+                      <Select
+                        value={roleToInvite}
+                        onChange={(e) => setRoleToInvite(e.target.value as ProjectRole)}
+                        fullWidth
+                      >
+                        <MenuItem value={ProjectRole.EDITOR}>Editor</MenuItem>
+                        <MenuItem value={ProjectRole.VIEWER}>Viewer</MenuItem>
+                        {/* Owner cannot be invited usually */}
+                      </Select>
+                    </Box>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={() => setIsInviteOpen(false)}>Cancel</Button>
+                    <Button
+                      onClick={handleAddMember}
+                      variant='contained'
+                      disabled={addMemberMutation.isPending || !emailToInvite}
+                    >
+                      {addMemberMutation.isPending ? 'Inviting...' : 'Invite'}
+                    </Button>
+                  </DialogActions>
+                </Dialog>
+
                 <Box
                   sx={{ mt: 4, p: 3, backgroundColor: 'rgba(57, 73, 171, 0.1)', borderRadius: 2 }}
                 >
@@ -279,21 +328,21 @@ export default function ProjectSettingsPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip label='Manager' color='error' size='small' />
+                      <Chip label='OWNER' color='error' size='small' />
                       <Typography variant='body2' color='text.secondary'>
-                        Full access - Can manage team, settings, and publish
+                        Full access - Can manage team, settings, and delete project
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip label='Mentor' color='primary' size='small' />
+                      <Chip label='EDITOR' color='primary' size='small' />
                       <Typography variant='body2' color='text.secondary'>
-                        Can edit, review, and comment on documents
+                        Can edit content, compile PDF, and use AI features
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip label='Student' color='success' size='small' />
+                      <Chip label='VIEWER' color='default' size='small' />
                       <Typography variant='body2' color='text.secondary'>
-                        Can edit and comment on documents
+                        Read-only access to documents and settings
                       </Typography>
                     </Box>
                   </Box>

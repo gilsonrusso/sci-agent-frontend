@@ -1,54 +1,56 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import {
-  Box,
-  Card,
-  CardContent,
-  CardActionArea,
-  Typography,
-  Chip,
+  Add,
+  Analytics,
+  Assignment,
+  Description,
+  Menu as MenuIcon,
+  Notifications,
+  Science,
+  Search,
+  Settings,
+} from '@mui/icons-material';
+import {
+  AppBar,
   Avatar,
-  LinearProgress,
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardActions,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
+  Grid,
+  IconButton,
+  LinearProgress,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  AppBar,
-  Toolbar,
-  IconButton,
   Paper,
-  Grid,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Stack,
   TextField,
-  CircularProgress,
+  Toolbar,
+  Typography,
 } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
-  Description,
-  Assignment,
-  Analytics,
-  Settings,
-  Menu as MenuIcon,
-  Add,
-  Search,
-  Notifications,
-  Science,
-} from '@mui/icons-material';
-import {
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, type ProjectCreate } from './projectsApi';
 
 const mockTasks = [
@@ -122,7 +124,7 @@ export default function DashboardPage() {
     { text: 'Projects', icon: <Description /> },
     { text: 'Tasks', icon: <Assignment /> },
     { text: 'Analytics', icon: <Analytics /> },
-    { text: 'Settings', icon: <Settings /> },
+    { text: 'Account Settings', icon: <Settings /> },
   ];
 
   const drawer = (
@@ -184,23 +186,21 @@ export default function DashboardPage() {
           sx={{ backgroundColor: '#1A1F2E', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
         >
           <Toolbar>
-            <IconButton
-              edge='start'
+            <Button
+              startIcon={<MenuIcon />}
               color='inherit'
               sx={{ mr: 2, display: { md: 'none' } }}
               onClick={() => setDrawerOpen(true)}
-            >
-              <MenuIcon />
-            </IconButton>
+            />
             <Typography variant='h6' sx={{ flexGrow: 1 }}>
               Dashboard
             </Typography>
-            <IconButton color='inherit'>
-              <Search />
-            </IconButton>
-            <IconButton color='inherit'>
-              <Notifications />
-            </IconButton>
+            <Button startIcon={<Search />} color='inherit'>
+              Search
+            </Button>
+            <Button startIcon={<Notifications />} color='inherit'>
+              Notifications
+            </Button>
             <Avatar sx={{ ml: 2, bgcolor: '#3949AB' }}>JS</Avatar>
           </Toolbar>
         </AppBar>
@@ -279,52 +279,64 @@ export default function DashboardPage() {
                           },
                         }}
                       >
-                        <CardActionArea onClick={() => navigate(`/editor/${project.id}`)}>
-                          <CardContent>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'start',
-                                mb: 2,
-                              }}
-                            >
-                              <Chip label='Draft' color='warning' size='small' />
-                            </Box>
-                            <Typography variant='h6' sx={{ mb: 2, fontWeight: 500 }}>
-                              {project.title}
-                            </Typography>
-                            <Box sx={{ mb: 1 }}>
-                              <Typography
-                                variant='body2'
-                                color='text.secondary'
+                        <Stack sx={{ position: 'relative' }}>
+                          <CardActionArea onClick={() => navigate(`/editor/${project.id}`)}>
+                            <CardContent>
+                              <Box
                                 sx={{
-                                  mb: 1,
-                                  height: 40,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'start',
+                                  mb: 2,
                                 }}
                               >
-                                {project.description || 'No description provided.'}
+                                <Chip label='Draft' color='warning' size='small' />
+                              </Box>
+                              <Typography variant='h6' sx={{ mb: 2, fontWeight: 500 }}>
+                                {project.title}
                               </Typography>
-                              <LinearProgress
-                                variant='determinate'
-                                value={30} // Placeholder progress/status
-                                sx={{
-                                  height: 6,
-                                  borderRadius: 3,
-                                  backgroundColor: 'rgba(255,255,255,0.1)',
-                                  '& .MuiLinearProgress-bar': {
-                                    backgroundColor: '#10B981',
-                                  },
-                                }}
-                              />
-                            </Box>
-                            <Typography variant='caption' color='text.secondary'>
-                              Last modified: {new Date(project.updated_at).toLocaleDateString()}
-                            </Typography>
-                          </CardContent>
-                        </CardActionArea>
+                              <Box sx={{ mb: 1 }}>
+                                <Typography
+                                  variant='body2'
+                                  color='text.secondary'
+                                  sx={{
+                                    mb: 1,
+                                    height: 40,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {project.description || 'No description provided.'}
+                                </Typography>
+                                <LinearProgress
+                                  variant='determinate'
+                                  value={30} // Placeholder progress/status
+                                  sx={{
+                                    height: 6,
+                                    borderRadius: 3,
+                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                    '& .MuiLinearProgress-bar': {
+                                      backgroundColor: '#10B981',
+                                    },
+                                  }}
+                                />
+                              </Box>
+                              <Typography variant='caption' color='text.secondary'>
+                                Last modified: {new Date(project.updated_at).toLocaleDateString()}
+                              </Typography>
+                            </CardContent>
+                          </CardActionArea>
+                          <IconButton
+                            size='small'
+                            sx={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/settings/${project.id}`);
+                            }}
+                          >
+                            <Settings fontSize='small' />
+                          </IconButton>
+                        </Stack>
                       </Card>
                     </Grid>
                   ))}
