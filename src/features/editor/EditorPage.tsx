@@ -17,6 +17,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useNavigate, useParams } from 'react-router';
 import { projectsApi } from '../dashboard/projectsApi';
+import { useAppSelector } from '../../store/hooks';
+import { stringToColor } from '../../lib/colors';
+import ConnectedUsers from './components/ConnectedUsers';
 
 // CodeMirror & Yjs
 import { yCollab } from 'y-codemirror.next';
@@ -36,6 +39,7 @@ import AIChatSidebar from './components/AIChatSidebar';
 export default function EditorPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const user = useAppSelector((state) => state.auth.user);
 
   // Editor Ref
   const editorRef = useRef<HTMLDivElement>(null);
@@ -48,8 +52,8 @@ export default function EditorPage() {
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Save State - REMOVED (Server-Authoritative)
-  // const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  // Yjs Provider State
+  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
 
   // Fetch Project Metadata
   const { data: project, isLoading } = useQuery({
@@ -60,16 +64,25 @@ export default function EditorPage() {
 
   // Initialize CodeMirror + Yjs
   useEffect(() => {
-    if (!projectId || !editorRef.current) return;
+    if (!projectId || !editorRef.current || !user) return;
 
     // 1. Setup Yjs Document & Provider
     const ydoc = new Y.Doc();
     // Using localhost:8000 directly for now. In prod, use window.location or env var.
-    const provider = new WebsocketProvider(
+    const wsProvider = new WebsocketProvider(
       `ws://localhost:8000/api/v1/editor/${projectId}/ws`, // Base URL
-      'sci-agent', // Room name (ignored by our custom endpoint? or connection param?)
+      'sci-agent', // Room name
       ydoc,
     );
+
+    setProvider(wsProvider);
+
+    // Set User Awareness
+    const userColor = stringToColor(user.full_name || user.email);
+    wsProvider.awareness.setLocalStateField('user', {
+      name: user.full_name || user.email,
+      color: userColor,
+    });
 
     const ytext = ydoc.getText('codemirror');
 
@@ -92,7 +105,7 @@ export default function EditorPage() {
         oneDark, // Keeping oneDark as dracula is not imported. Replace with dracula if imported.
         // dracula, // Uncomment and import if using dracula theme
         // Yjs Binding
-        yCollab(ytext, provider.awareness),
+        yCollab(ytext, wsProvider.awareness),
         // No more updateListener for auto-save!
         EditorView.updateListener.of((_) => {
           // We can track local changes if needed for UI state, but not for saving.
@@ -110,35 +123,27 @@ export default function EditorPage() {
     // DEBUG: Expose to window
     (window as any).ydoc = ydoc;
     (window as any).ytext = ytext;
-    (window as any).provider = provider;
+    (window as any).provider = wsProvider;
 
     // 3. Cleanup
     return () => {
       view.destroy();
-      provider.destroy();
+      wsProvider.destroy();
       ydoc.destroy();
-      // if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); // Removed auto-save cleanup
+      setProvider(null);
     };
-  }, [projectId]); // Stable dependency
+  }, [projectId, user]); // Re-run if user changes (e.g. login)
 
-  // Auto-compile on load (OPTIONAL: Maybe remove this?)
-  // If we want auto-compile, we should wait until Yjs is synced.
-  // provider.on('synced') -> compile.
+  // Auto-compile ... (removed for now)
   const hasCompiledRef = useRef(false);
   useEffect(() => {
     if (hasCompiledRef.current) return;
-    // We can listen to sync event
-    // But for now, let's just leave it manual or simple.
   }, []);
 
   // Handle Compile
   const handleCompile = async () => {
     if (!projectId) return;
     setIsCompiling(true);
-    // Force save before compile - REMOVED AUTO-SAVE
-    // if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    // const content = viewRef.current?.state.doc.toString() || '';
-    // await saveContent(content);
 
     try {
       // Call API without content parameter, backend fetches from Yjs
@@ -201,7 +206,8 @@ export default function EditorPage() {
             {project.title}
           </Typography>
 
-          {/* Save Status - REMOVED */}
+          {/* Connected Users */}
+          <ConnectedUsers provider={provider} />
 
           <Button
             variant='outlined'
