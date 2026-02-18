@@ -65,17 +65,25 @@ export default function EditorPage() {
 
   // 1. Initialize Yjs Provider & Data Layer
   useEffect(() => {
-    if (!projectId || !user) return;
+    if (!projectId || !user) {
+      return;
+    }
 
     const ydoc = new Y.Doc();
-    // Using localhost:8000 directly for now. In prod, use window.location or env var.
-    const wsProvider = new WebsocketProvider(
-      `ws://localhost:8000/api/v1/editor/${projectId}/ws`,
-      'sci-agent',
-      ydoc,
-    );
+
+    // Construct WS URL dynamically
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+    const wsUrl = `${protocol}//${host}/api/v1/editor/${projectId}/ws`;
+
+    const wsProvider = new WebsocketProvider(wsUrl, 'sci-agent', ydoc);
 
     // Track Sync State & Connection Status
+
+    // Track Sync State & Connection Status
+    if (wsProvider.synced) {
+      setHasInitialSync(true);
+    }
 
     wsProvider.on('sync', (isSynced: boolean) => {
       if (isSynced) {
@@ -98,16 +106,14 @@ export default function EditorPage() {
     });
 
     return () => {
-      clearTimeout(timeoutId); // FIX: Clear timeout on cleanup
+      clearTimeout(timeoutId);
+      // In Strict Mode, this might be called immediately.
+      // We should potentially keep the provider if we remount quickly,
+      // but for now let's just ensure we destroy properly.
       wsProvider.destroy();
       ydoc.destroy();
       setProvider(null);
-      // Do NOT reset hasInitialSync here to avoid flash on re-renders,
-      // but since we depend on projectId, if projectId changes we DO want to reset.
-      // But typically React creates a new component instance or state is reset if key changes.
-      // If we are just unmounting/remounting same project (Strict Mode), we want persistence?
-      // Actually, setHasInitialSync(false) is fine if we re-create provider.
-      setHasInitialSync(false);
+      // Removed setHasInitialSync(false) to prevent state flickering in Strict Mode
     };
   }, [projectId, user]);
 

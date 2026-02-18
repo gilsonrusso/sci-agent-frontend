@@ -50,14 +50,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { projectsApi, type ProjectCreate } from './projectsApi';
-
-const mockTasks = [
-  { id: 1, title: 'Review Methodology section', project: 'Quantum Computing', priority: 'high' },
-  { id: 2, title: 'Add references for Section 3', project: 'Machine Learning', priority: 'medium' },
-  { id: 3, title: 'Respond to reviewer comments', project: 'Neural Network', priority: 'high' },
-  { id: 4, title: 'Update figures and captions', project: 'Bioinformatics', priority: 'low' },
-];
+import { projectsApi, type ProjectCreate, type ProjectTask } from './projectsApi';
+import TaskCard from './components/TaskCard';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const chartData = [
   { date: 'Feb 1', words: 2400 },
@@ -79,11 +74,28 @@ export default function DashboardPage() {
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { sendNotification } = useNotifications();
 
   // Fetch Projects
-  const { data: projects, isLoading } = useQuery({
+  const { data: projects, isLoading: isLoadingProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getProjects,
+  });
+
+  // Fetch Tasks (For all projects - tricky without backend support for "my tasks",
+  // so for now we might mock specific project ID or fetch all for loaded projects)
+  // For MVP: let's fetch tasks for the FIRST project if available, or empty.
+  // Ideally backend needs GET /tasks?assigned_to=me
+  // We will assume backend supports filtering or we just show a placeholder "Select Project"
+  // But wait, the previous mock was "Pending Tasks".
+  // Let's trying to fetch tasks for ALL projects is n+1.
+  // Let's just fetch tasks for the first project for demo purposes if projects exist.
+  const firstProjectId = projects?.[0]?.id;
+
+  const { data: tasks, isLoading: isLoadingTasks } = useQuery({
+    queryKey: ['tasks', firstProjectId],
+    queryFn: () => (firstProjectId ? projectsApi.getTasks(firstProjectId) : Promise.resolve([])),
+    enabled: !!firstProjectId,
   });
 
   // Create Project Mutation
@@ -97,6 +109,23 @@ export default function DashboardPage() {
     },
   });
 
+  // Approve/Reject Mutations
+  const approveTaskMutation = useMutation({
+    mutationFn: projectsApi.approveTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      sendNotification('Task Approved', { body: 'The student has been notified.' });
+    },
+  });
+
+  const rejectTaskMutation = useMutation({
+    mutationFn: projectsApi.rejectTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      sendNotification('Task Rejected', { body: 'The student has been notified to revise.' });
+    },
+  });
+
   const handleCreateProject = () => {
     if (!newProjectTitle.trim()) return;
     createProjectMutation.mutate({
@@ -106,24 +135,12 @@ export default function DashboardPage() {
     });
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return '#EF4444';
-      case 'medium':
-        return '#F59E0B';
-      case 'low':
-        return '#10B981';
-      default:
-        return '#6B7280';
-    }
-  };
-
   const navItems = [
-    { text: 'Projects', icon: <Description /> },
-    { text: 'Tasks', icon: <Assignment /> },
-    { text: 'Analytics', icon: <Analytics /> },
-    { text: 'Account Settings', icon: <Settings /> },
+    { text: 'Projects', icon: <Description />, path: '/dashboard' },
+    { text: 'Tasks', icon: <Assignment />, path: '/tasks' },
+    { text: 'Analytics', icon: <Analytics />, path: '/analytics' },
+    { text: 'New Project AI', icon: <Science />, path: '/onboarding' },
+    { text: 'Account Settings', icon: <Settings />, path: '/settings' },
   ];
 
   const drawer = (
@@ -139,7 +156,10 @@ export default function DashboardPage() {
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={activeNav === item.text}
-              onClick={() => setActiveNav(item.text)}
+              onClick={() => {
+                setActiveNav(item.text);
+                if (item.path) navigate(item.path);
+              }}
               sx={{
                 '&.Mui-selected': {
                   backgroundColor: 'rgba(57, 73, 171, 0.2)',
@@ -215,7 +235,7 @@ export default function DashboardPage() {
                 Welcome back, Dr. Smith
               </Typography>
               <Typography variant='body1' color='text.secondary'>
-                You have {projects?.length || 0} active projects and 4 pending tasks
+                You have {projects?.length || 0} active projects and {(tasks || []).length} tasks
               </Typography>
             </Box>
             <IconButton
@@ -260,7 +280,7 @@ export default function DashboardPage() {
                 Active Projects
               </Typography>
 
-              {isLoading ? (
+              {isLoadingProjects ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                   <CircularProgress />
                 </Box>
@@ -354,26 +374,25 @@ export default function DashboardPage() {
             <Grid size={{ xs: 12, lg: 4 }}>
               <Paper sx={{ p: 3, backgroundColor: '#1A1F2E' }}>
                 <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
-                  Pending Tasks
+                  Current Tasks (Project 1)
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {mockTasks.map((task) => (
-                    <Paper
-                      key={task.id}
-                      sx={{
-                        p: 2,
-                        backgroundColor: '#212838',
-                        borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
-                      }}
-                    >
-                      <Typography variant='body2' sx={{ fontWeight: 500, mb: 0.5 }}>
-                        {task.title}
-                      </Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        {task.project}
-                      </Typography>
-                    </Paper>
-                  ))}
+                  {isLoadingTasks ? (
+                    <CircularProgress size={20} />
+                  ) : tasks && tasks.length > 0 ? (
+                    tasks.map((task: ProjectTask) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        projectName={projects?.find((p) => p.id === task.project_id)?.title}
+                        isSupervisor={true} // Hardcoded for demo, TODO: check User Role
+                        onApprove={(id) => approveTaskMutation.mutate(id)}
+                        onReject={(id) => rejectTaskMutation.mutate(id)}
+                      />
+                    ))
+                  ) : (
+                    <Typography color='text.secondary'>No tasks for the first project.</Typography>
+                  )}
                 </Box>
               </Paper>
             </Grid>

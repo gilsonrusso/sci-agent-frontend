@@ -45,7 +45,69 @@ export const ProjectMemberSchema = z.object({
 
 export type ProjectMember = z.infer<typeof ProjectMemberSchema>;
 
+export const TaskStatus = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  WAITING_APPROVAL: 'waiting_approval',
+  DONE: 'done',
+} as const;
+
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
+
+export const ProjectTaskSchema = z.object({
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().optional().nullable(),
+  status: z.enum([
+    TaskStatus.PENDING,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.WAITING_APPROVAL,
+    TaskStatus.DONE,
+  ]),
+  due_date: z.string().datetime().optional().nullable(),
+  assigned_to: z.string().uuid().optional().nullable(),
+});
+
+export type ProjectTask = z.infer<typeof ProjectTaskSchema>;
+
+export const ProjectTaskCreateSchema = z.object({
+  project_id: z.string().uuid(),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+  status: z
+    .enum([
+      TaskStatus.PENDING,
+      TaskStatus.IN_PROGRESS,
+      TaskStatus.WAITING_APPROVAL,
+      TaskStatus.DONE,
+    ])
+    .optional(),
+  due_date: z.string().datetime().optional(),
+  assigned_to: z.string().uuid().optional(),
+});
+
+export type ProjectTaskCreate = z.infer<typeof ProjectTaskCreateSchema>;
+
+export const ProjectTaskUpdateSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  status: z
+    .enum([
+      TaskStatus.PENDING,
+      TaskStatus.IN_PROGRESS,
+      TaskStatus.WAITING_APPROVAL,
+      TaskStatus.DONE,
+    ])
+    .optional(),
+  due_date: z.string().datetime().optional(),
+  assigned_to: z.string().uuid().optional(),
+});
+
+export type ProjectTaskUpdate = z.infer<typeof ProjectTaskUpdateSchema>;
+
 export const projectsApi = {
+  // ... existing methods ...
   getProjects: async (): Promise<Project[]> => {
     const response = await axiosClient.get<Project[]>('/projects');
     return response.data;
@@ -59,7 +121,7 @@ export const projectsApi = {
   compileProject: async (id: string, content?: string): Promise<Blob> => {
     const response = await axiosClient.post(
       `/editor/${id}/compile`,
-      { content }, // Content is optional/ignored by backend in server-authoritative mode
+      { content },
       { responseType: 'blob' },
     );
     return response.data;
@@ -81,7 +143,6 @@ export const projectsApi = {
   },
 
   // Member Management
-  // Member Management
   getMembers: async (projectId: string): Promise<ProjectMember[]> => {
     const response = await axiosClient.get<ProjectMember[]>(`/projects/${projectId}/members`);
     return response.data;
@@ -101,6 +162,39 @@ export const projectsApi = {
 
   removeMember: async (projectId: string, userId: string): Promise<void> => {
     await axiosClient.delete(`/projects/${projectId}/members/${userId}`);
+  },
+
+  // Task Management
+  getTasks: async (projectId: string): Promise<ProjectTask[]> => {
+    const response = await axiosClient.get<ProjectTask[]>('/tasks', {
+      params: { project_id: projectId },
+    });
+    return response.data;
+  },
+
+  createTask: async (data: ProjectTaskCreate): Promise<ProjectTask> => {
+    const response = await axiosClient.post<ProjectTask>('/tasks', data);
+    return response.data;
+  },
+
+  updateTask: async (id: string, data: ProjectTaskUpdate): Promise<ProjectTask> => {
+    const response = await axiosClient.put<ProjectTask>(`/tasks/${id}`, data);
+    return response.data;
+  },
+
+  requestTaskApproval: async (id: string): Promise<ProjectTask> => {
+    const response = await axiosClient.post<ProjectTask>(`/tasks/${id}/request-approval`);
+    return response.data;
+  },
+
+  approveTask: async (id: string): Promise<ProjectTask> => {
+    const response = await axiosClient.post<ProjectTask>(`/tasks/${id}/approve`);
+    return response.data;
+  },
+
+  rejectTask: async (id: string): Promise<ProjectTask> => {
+    const response = await axiosClient.post<ProjectTask>(`/tasks/${id}/reject`);
+    return response.data;
   },
 
   // User Management
