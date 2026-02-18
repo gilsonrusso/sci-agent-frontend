@@ -64,11 +64,33 @@ export default function OnboardingChat() {
     onSuccess: (data) => {
       setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
 
-      if (data.structured_data?.suggested_articles) {
+      if (
+        data.structured_data?.suggested_articles &&
+        data.structured_data.suggested_articles.length > 0
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '',
+            type: 'article_selection',
+            data: { articles: data.structured_data?.suggested_articles },
+          },
+        ]);
+        // Also keep in state if needed for other logic, but main display is now via message
         setSuggestedArticles(data.structured_data.suggested_articles);
       }
 
       if (data.structured_data?.roadmap) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '',
+            type: 'roadmap_approval',
+            data: { roadmap: data.structured_data?.roadmap },
+          },
+        ]);
         setRoadmap(data.structured_data.roadmap);
       }
 
@@ -118,6 +140,156 @@ export default function OnboardingChat() {
     });
   };
 
+  const renderMessageContent = (msg: ChatMessage, idx: number) => {
+    // 1. Article Selection Component
+    if (msg.type === 'article_selection' && msg.data?.articles) {
+      // User requested to REMOVE it from history after selection.
+      // So if it's NOT the last message, we don't render it (or render null).
+      // However, to be cleaner, we will actually remove it from state in the handler.
+      // If we are here, it SHOULD be the last message (or we decided to keep it visible but interactive).
+
+      const articles = msg.data.articles as Article[];
+
+      return (
+        <Box sx={{ mt: 1, p: 2, border: '1px solid #333', borderRadius: 2, width: '100%' }}>
+          <Typography variant='subtitle2' sx={{ mb: 1, color: '#10B981' }}>
+            Artigos Encontrados:
+          </Typography>
+          <Stack spacing={1}>
+            {articles.map((article, i) => (
+              <Card key={i} variant='outlined' sx={{ backgroundColor: 'transparent' }}>
+                <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!selectedArticles.find((a) => a.url === article.url)}
+                        onChange={() => handleArticleToggle(article)}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant='subtitle2'>{article.title}</Typography>
+                        <Typography variant='caption' color='text.secondary'>
+                          {article.authors.join(', ')} ({article.year})
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+
+          <Button
+            variant='contained'
+            sx={{ mt: 2 }}
+            onClick={() => {
+              const summaryText = `Selecionados: ${selectedArticles.map((a) => a.title).join(', ')}`;
+
+              setMessages((prev) => {
+                // remove the selection component message
+                const filtered = prev.filter((m) => m.type !== 'article_selection');
+                return [
+                  ...filtered,
+                  {
+                    role: 'user',
+                    content: summaryText,
+                    type: 'selection_summary',
+                    data: { articles: selectedArticles },
+                  },
+                ];
+              });
+
+              chatMutation.mutate(
+                `Eu selecionei ${selectedArticles.length} artigos: ${selectedArticles.map((a) => a.title).join(', ')}`,
+              );
+            }}
+            disabled={selectedArticles.length === 0}
+          >
+            Confirmar Seleção
+          </Button>
+        </Box>
+      );
+    }
+
+    // 1.5 Selection Summary (Rich Display)
+    if (msg.type === 'selection_summary' && msg.data?.articles) {
+      const articles = msg.data.articles as Article[];
+      return (
+        <Box sx={{ width: '100%' }}>
+          <Typography variant='body1' sx={{ mb: 1, fontWeight: 600 }}>
+            Artigos Selecionados:
+          </Typography>
+          <Stack spacing={1}>
+            {articles.map((article, i) => (
+              <Paper
+                key={i}
+                elevation={0}
+                sx={{ p: 1.5, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}
+              >
+                <Typography variant='subtitle2' color='primary.light'>
+                  <a
+                    href={article.url}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >
+                    {article.title}
+                  </a>
+                </Typography>
+              </Paper>
+            ))}
+          </Stack>
+        </Box>
+      );
+    }
+
+    // 2. Roadmap Approval Component
+    if (msg.type === 'roadmap_approval' && msg.data?.roadmap) {
+      const tasks = msg.data.roadmap as RoadmapTask[];
+      return (
+        <Box sx={{ mt: 2, p: 2, border: '1px solid #10B981', borderRadius: 2, width: '100%' }}>
+          <Typography variant='h6' sx={{ mb: 1, color: '#10B981' }}>
+            Roadmap Proposto
+          </Typography>
+          <Stack spacing={1}>
+            {tasks.map((task, i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  p: 1,
+                  backgroundColor: '#0F1419',
+                }}
+              >
+                <Typography>{task.title}</Typography>
+                <Chip label={`Dia ${task.due_in_days}`} size='small' color='primary' />
+              </Box>
+            ))}
+          </Stack>
+          <Button
+            variant='contained'
+            color='success'
+            fullWidth
+            sx={{ mt: 2 }}
+            onClick={handleCreateProjectParams}
+            disabled={createProjectMutation.isPending}
+          >
+            {createProjectMutation.isPending ? 'Criando...' : 'Criar Projeto'}
+          </Button>
+        </Box>
+      );
+    }
+
+    // Default Text
+    return (
+      <Typography variant='body1' sx={{ whiteSpace: 'pre-wrap' }}>
+        {msg.content}
+      </Typography>
+    );
+  };
+
   return (
     <Container
       maxWidth='md'
@@ -132,23 +304,27 @@ export default function OnboardingChat() {
           {messages.map((msg, idx) => (
             <ListItem
               key={idx}
-              sx={{ justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
+              sx={{
+                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                alignItems: 'flex-start',
+              }}
             >
               <Paper
                 sx={{
                   p: 2,
-                  maxWidth: '80%',
+                  maxWidth: '85%',
                   backgroundColor: msg.role === 'user' ? '#3949AB' : '#212838',
                   color: '#fff',
+                  width: msg.type ? '90%' : 'auto',
                 }}
               >
                 <Stack direction='row' spacing={1}>
                   {msg.role === 'user' ? (
-                    <RecordVoiceOverTwoTone sx={{ fontSize: '3rem' }} />
+                    <RecordVoiceOverTwoTone sx={{ fontSize: '2rem' }} />
                   ) : (
-                    <SmartToyTwoTone sx={{ fontSize: '3rem' }} />
+                    <SmartToyTwoTone sx={{ fontSize: '2rem' }} />
                   )}
-                  <Typography variant='body1'>{msg.content}</Typography>
+                  <Box sx={{ width: '100%' }}>{renderMessageContent(msg, idx)}</Box>
                 </Stack>
               </Paper>
             </ListItem>
@@ -160,92 +336,6 @@ export default function OnboardingChat() {
           )}
           <div ref={messagesEndRef} />
         </List>
-
-        {/* Structured Data Display */}
-        {suggestedArticles.length > 0 && roadmap.length === 0 && (
-          <Box sx={{ mt: 2, p: 2, border: '1px solid #333', borderRadius: 2 }}>
-            <Typography variant='h6' sx={{ mb: 1 }}>
-              Artigos Sugeridos
-            </Typography>
-            <Typography variant='caption' color='text.secondary'>
-              Selecione artigos relevantes para incluir no contexto do seu projeto.
-            </Typography>
-            <Stack spacing={1} sx={{ mt: 1 }}>
-              {suggestedArticles.map((article, idx) => (
-                <Card key={idx} variant='outlined' sx={{ backgroundColor: 'transparent' }}>
-                  <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={!!selectedArticles.find((a) => a.url === article.url)}
-                          onChange={() => handleArticleToggle(article)}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant='subtitle2'>{article.title}</Typography>
-                          <Typography variant='caption' color='text.secondary'>
-                            {article.authors.join(', ')} ({article.year})
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-            </Stack>
-            <Button
-              variant='contained'
-              sx={{ mt: 2 }}
-              onClick={() => {
-                setMessages((prev) => [
-                  ...prev,
-                  { role: 'user', content: `Eu selecionei ${selectedArticles.length} artigos.` },
-                ]);
-                chatMutation.mutate(`Eu selecionei ${selectedArticles.length} artigos.`);
-                // Clear suggestions to hide this block, giving disabling effect
-                setSuggestedArticles([]);
-              }}
-              disabled={selectedArticles.length === 0}
-            >
-              Confirmar Seleção
-            </Button>
-          </Box>
-        )}
-
-        {roadmap.length > 0 && (
-          <Box sx={{ mt: 2, p: 2, border: '1px solid #10B981', borderRadius: 2 }}>
-            <Typography variant='h6' sx={{ mb: 1, color: '#10B981' }}>
-              Roadmap Proposto
-            </Typography>
-            <Stack spacing={1}>
-              {roadmap.map((task, idx) => (
-                <Box
-                  key={idx}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    p: 1,
-                    backgroundColor: '#0F1419',
-                  }}
-                >
-                  <Typography>{task.title}</Typography>
-                  <Chip label={`Dia ${task.due_in_days}`} size='small' color='primary' />
-                </Box>
-              ))}
-            </Stack>
-            <Button
-              variant='contained'
-              color='success'
-              fullWidth
-              sx={{ mt: 2 }}
-              onClick={handleCreateProjectParams}
-              disabled={createProjectMutation.isPending}
-            >
-              {createProjectMutation.isPending ? 'Criando...' : 'Criar Projeto'}
-            </Button>
-          </Box>
-        )}
       </Paper>
 
       <Box sx={{ display: 'flex', gap: 1 }}>

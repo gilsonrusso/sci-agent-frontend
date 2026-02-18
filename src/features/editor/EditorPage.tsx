@@ -74,9 +74,13 @@ export default function EditorPage() {
     // Construct WS URL dynamically
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-    const wsUrl = `${protocol}//${host}/api/v1/editor/${projectId}/ws`;
 
-    const wsProvider = new WebsocketProvider(wsUrl, 'sci-agent', ydoc);
+    // User Feedback: Simplify URL to avoid duplication.
+    // Backend expects: /api/v1/editor/ws/{roomName}
+    // y-websocket appends roomName automatically.
+    const wsUrl = `${protocol}//${host}/api/v1/editor/ws`;
+
+    const wsProvider = new WebsocketProvider(wsUrl, projectId, ydoc);
 
     // Track Sync State & Connection Status
 
@@ -91,10 +95,7 @@ export default function EditorPage() {
       }
     });
 
-    // Fallback: Force show editor after 3s if sync fails/hangs
-    const timeoutId = setTimeout(() => {
-      setHasInitialSync(true);
-    }, 3000);
+    // Removed Timeout Fallback (User Feedback: "Dangerous, hides real errors")
 
     setProvider(wsProvider);
 
@@ -106,25 +107,26 @@ export default function EditorPage() {
     });
 
     return () => {
-      clearTimeout(timeoutId);
       // In Strict Mode, this might be called immediately.
-      // We should potentially keep the provider if we remount quickly,
-      // but for now let's just ensure we destroy properly.
+      // Ideally we'd use a ref to prevent double-init, but for now specific cleanup:
+      wsProvider.awareness.setLocalState(null); // Explicit cleanup
       wsProvider.destroy();
       ydoc.destroy();
       setProvider(null);
-      // Removed setHasInitialSync(false) to prevent state flickering in Strict Mode
     };
   }, [projectId, user]);
 
   // 2. Initialize CodeMirror View (Only after Sync)
   useEffect(() => {
-    if (!provider || !editorRef.current) return;
+    if (!provider || !editorRef.current || !hasInitialSync) return;
 
     const ytext = provider.doc.getText('codemirror');
 
+    // DEBUG: Log content length to verify data loading
+    console.log('[Editor] Initial ytext length:', ytext.length);
+
     const startState = EditorState.create({
-      doc: ytext.toString(), // Now guaranteed to have content
+      doc: ytext.toString(), // Reverted: Ensure content is visible immediately. yCollab handles subsequent sync.
       extensions: [
         basicSetup,
         keymap.of([...defaultKeymap, indentWithTab]),

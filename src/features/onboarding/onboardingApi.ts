@@ -3,6 +3,8 @@ import { axiosClient } from '../../api/axiosClient';
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  type?: 'text' | 'article_selection' | 'roadmap_approval' | 'project_info' | 'selection_summary';
+  data?: any; // Flexible for now, or define specific types
 }
 
 export interface Article {
