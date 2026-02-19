@@ -10,6 +10,7 @@ import {
   Container,
   FormControlLabel,
   IconButton,
+  Link,
   List,
   ListItem,
   Paper,
@@ -222,22 +223,22 @@ export default function OnboardingChat() {
           </Typography>
           <Stack spacing={1}>
             {articles.map((article, i) => (
-              <Paper
+              <Card
+                variant='outlined'
+                sx={{ backgroundColor: 'transparent', p: 1.5, borderRadius: 1 }}
                 key={i}
                 elevation={0}
-                sx={{ p: 1.5, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}
               >
-                <Typography variant='subtitle2' color='primary.light'>
-                  <a
-                    href={article.url}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    {article.title}
-                  </a>
-                </Typography>
-              </Paper>
+                <Link
+                  underline='always'
+                  href={article.url}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  color='textPrimary'
+                >
+                  {article.title}
+                </Link>
+              </Card>
             ))}
           </Stack>
         </Box>
@@ -264,7 +265,7 @@ export default function OnboardingChat() {
                 }}
               >
                 <Typography>{task.title}</Typography>
-                <Chip label={`Dia ${task.due_in_days}`} size='small' color='primary' />
+                <Chip label={` ${task.due_in_days} dias`} size='small' color='primary' />
               </Box>
             ))}
           </Stack>

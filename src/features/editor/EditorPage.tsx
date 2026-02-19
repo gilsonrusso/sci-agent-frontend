@@ -44,6 +44,8 @@ export default function EditorPage() {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
+  const [isSynced, setIsSynced] = useState(false);
+
   // PDF State
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
@@ -53,8 +55,7 @@ export default function EditorPage() {
 
   // Yjs Provider State
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
-  // Latch state: once synced, stay synced (UI-wise) preventing flashing/blocking
-  const [hasInitialSync, setHasInitialSync] = useState(false);
+  const providerRef = useRef<WebsocketProvider | null>(null);
 
   // Fetch Project Metadata (renamed loading variable to avoid conflict if needed, but existing is fine)
   const { data: project, isLoading } = useQuery({
@@ -62,99 +63,6 @@ export default function EditorPage() {
     queryFn: () => projectsApi.getProject(projectId!),
     enabled: !!projectId,
   });
-
-  // 1. Initialize Yjs Provider & Data Layer
-  useEffect(() => {
-    if (!projectId || !user) {
-      return;
-    }
-
-    const ydoc = new Y.Doc();
-
-    // Construct WS URL dynamically
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-
-    // User Feedback: Simplify URL to avoid duplication.
-    // Backend expects: /api/v1/editor/ws/{roomName}
-    // y-websocket appends roomName automatically.
-    const wsUrl = `${protocol}//${host}/api/v1/editor/ws`;
-
-    const wsProvider = new WebsocketProvider(wsUrl, projectId, ydoc);
-
-    // Track Sync State & Connection Status
-
-    // Track Sync State & Connection Status
-    if (wsProvider.synced) {
-      setHasInitialSync(true);
-    }
-
-    wsProvider.on('sync', (isSynced: boolean) => {
-      if (isSynced) {
-        setHasInitialSync(true);
-      }
-    });
-
-    // Removed Timeout Fallback (User Feedback: "Dangerous, hides real errors")
-
-    setProvider(wsProvider);
-
-    // Set User Awareness
-    const userColor = stringToColor(user.full_name || user.email);
-    wsProvider.awareness.setLocalStateField('user', {
-      name: user.full_name || user.email,
-      color: userColor,
-    });
-
-    return () => {
-      // In Strict Mode, this might be called immediately.
-      // Ideally we'd use a ref to prevent double-init, but for now specific cleanup:
-      wsProvider.awareness.setLocalState(null); // Explicit cleanup
-      wsProvider.destroy();
-      ydoc.destroy();
-      setProvider(null);
-    };
-  }, [projectId, user]);
-
-  // 2. Initialize CodeMirror View (Only after Sync)
-  useEffect(() => {
-    if (!provider || !editorRef.current || !hasInitialSync) return;
-
-    const ytext = provider.doc.getText('codemirror');
-
-    // DEBUG: Log content length to verify data loading
-    console.log('[Editor] Initial ytext length:', ytext.length);
-
-    const startState = EditorState.create({
-      doc: ytext.toString(), // Reverted: Ensure content is visible immediately. yCollab handles subsequent sync.
-      extensions: [
-        basicSetup,
-        keymap.of([...defaultKeymap, indentWithTab]),
-        markdown(),
-        EditorView.lineWrapping,
-        oneDark,
-        yCollab(ytext, provider.awareness),
-        EditorView.updateListener.of(() => {}),
-      ],
-    });
-
-    const view = new EditorView({
-      state: startState,
-      parent: editorRef.current!,
-    });
-
-    viewRef.current = view;
-
-    return () => {
-      view.destroy();
-    };
-  }, [provider, hasInitialSync]);
-
-  // Auto-compile on load (OPTIONAL: Maybe remove this?)
-  const hasCompiledRef = useRef(false);
-  useEffect(() => {
-    if (hasCompiledRef.current) return;
-  }, []);
 
   // Handle Compile
   const handleCompile = async () => {
@@ -178,6 +86,108 @@ export default function EditorPage() {
       setIsCompiling(false);
     }
   };
+
+  console.log('Component Rendered');
+  console.log('projectId:', projectId);
+  console.log('user:', user);
+
+  // 1. Initialize Yjs Provider & Data Layer
+  useEffect(() => {
+    if (!projectId || !user) return;
+    if (providerRef.current) return;
+    console.log('Creating WebSocket Provider');
+
+    const ydoc = new Y.Doc();
+
+    // Construct WS URL dynamically
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+
+    // User Feedback: Simplify URL to avoid duplication.
+    // Backend expects: /api/v1/editor/ws/{roomName}
+    // y-websocket appends roomName automatically.
+    const wsUrl = `${protocol}//${host}/api/v1/editor/ws`;
+
+    const wsProvider = new WebsocketProvider(wsUrl, projectId, ydoc);
+
+    // FIX: Client-side seeding for first connection if backend hydration is slow/missed.
+    wsProvider.on('sync', (isSynced: boolean) => {
+      if (isSynced) {
+        const ytext = ydoc.getText('codemirror');
+        if (ytext.length === 0 && project?.content) {
+          console.log('[Editor] Seeding YDoc from DB content (First Load Fix)');
+          ytext.insert(0, project.content);
+        }
+      }
+    });
+
+    providerRef.current = wsProvider;
+    setProvider(wsProvider);
+
+    return () => {
+      // In Strict Mode, this might be called immediately.
+      // Ideally we'd use a ref to prevent double-init, but for now specific cleanup:
+      wsProvider.awareness.setLocalState(null); // Explicit cleanup
+      wsProvider.destroy();
+      ydoc.destroy();
+      providerRef.current = null;
+      setProvider(null);
+    };
+  }, [projectId, user]);
+
+  // 2. Set User Awareness
+  useEffect(() => {
+    if (!provider || !user) return;
+
+    const userColor = stringToColor(user.full_name || user.email);
+    provider.awareness.setLocalStateField('user', {
+      name: user.full_name || user.email,
+      color: userColor,
+    });
+  }, [provider, user]);
+
+  // 3. Initialize CodeMirror View (Only after Sync)
+  useEffect(() => {
+    if (!provider) return;
+    if (!editorRef.current) return;
+    if (viewRef.current) return; // evita recriação
+
+    console.log('[Editor] Creating EditorView after sync');
+
+    const ytext = provider.doc.getText('codemirror');
+
+    const startState = EditorState.create({
+      // doc: ytext.toString(), // Reverted: Ensure content is visible immediately. yCollab handles subsequent sync.
+      extensions: [
+        basicSetup,
+        keymap.of([...defaultKeymap, indentWithTab]),
+        markdown(),
+        EditorView.lineWrapping,
+        oneDark,
+        yCollab(ytext, provider.awareness),
+        // EditorView.updateListener.of(() => {}),
+      ],
+    });
+
+    const view = new EditorView({
+      state: startState,
+      parent: editorRef.current!,
+    });
+
+    viewRef.current = view;
+
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, [provider]);
+
+  // Auto-compile on load (OPTIONAL: Maybe remove this?)
+  const hasCompiledRef = useRef(false);
+
+  useEffect(() => {
+    if (hasCompiledRef.current) return;
+  }, []);
 
   if (isLoading) {
     return (
@@ -259,29 +269,15 @@ export default function EditorPage() {
                 flexDirection: 'column',
               }}
             >
-              {!hasInitialSync ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                  }}
-                >
-                  <CircularProgress size={30} />
-                  <Typography sx={{ ml: 2, color: 'text.secondary' }}>Syncing...</Typography>
-                </Box>
-              ) : (
-                <Box
-                  ref={editorRef}
-                  sx={{
-                    flexGrow: 1,
-                    overflow: 'auto',
-                    '& .cm-editor': { height: '100%' },
-                    '& .cm-scroller': { overflow: 'auto' },
-                  }}
-                />
-              )}
+              <Box
+                ref={editorRef}
+                sx={{
+                  flexGrow: 1,
+                  overflow: 'auto',
+                  '& .cm-editor': { height: '100%' },
+                  '& .cm-scroller': { overflow: 'auto' },
+                }}
+              />
             </Box>
           </Panel>
 
