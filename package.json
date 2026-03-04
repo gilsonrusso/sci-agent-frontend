@@ -19,6 +19,8 @@
     "@codemirror/view": "^6.39.14",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@langchain/core": "^1.1.29",
+    "@langchain/langgraph-sdk": "^1.6.5",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
     "@reduxjs/toolkit": "^2.11.2",

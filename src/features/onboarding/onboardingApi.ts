@@ -1,5 +1,84 @@
 import { axiosClient } from '../../api/axiosClient';
 
+export const sendMessage = async (
+  conversationId: string,
+  message: string,
+  searchSource: string = 'semantic_scholar',
+  extraContext: any = {}
+) => {
+  const token = localStorage.getItem('token');
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  const body = {
+    conversation_id: conversationId,
+    message: message,
+    search_source: searchSource,
+    project_context: extraContext
+  };
+
+  const response = await fetch(`${apiUrl}/api/v1/onboarding/chat/invoke`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao enviar mensagem');
+  }
+
+  return response.json();
+};
+
+export const resumeMessage = async (
+  conversationId: string,
+  interruptId: string,
+  decision: any,
+  searchSource: string = 'semantic_scholar'
+) => {
+  const token = localStorage.getItem('token');
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  const body = {
+    conversation_id: conversationId,
+    interrupt_id: interruptId,
+    decision: decision,
+    search_source: searchSource,
+  };
+
+  const response = await fetch(`${apiUrl}/api/v1/onboarding/chat/reply_interrupt`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao enviar aprovação');
+  }
+
+  return response.json();
+};
+export interface InterruptActionRequest {
+  name: string;
+  args: Record<string, any>;
+  description?: string;
+}
+
+export interface InterruptReviewConfig {
+  action_name: string;
+  allowed_decisions: string[];
+}
+
+export interface InterruptPayload {
+  action_requests?: InterruptActionRequest[];
+  review_configs?: InterruptReviewConfig[];
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;

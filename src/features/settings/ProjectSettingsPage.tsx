@@ -32,7 +32,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ProjectRole, projectsApi } from '../dashboard/projectsApi';
-import type { AxiosError } from 'axios';
 
 export default function ProjectSettingsPage() {
   const navigate = useNavigate();

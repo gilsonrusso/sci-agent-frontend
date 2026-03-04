@@ -44,8 +44,6 @@ export default function EditorPage() {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
-  const [isSynced, setIsSynced] = useState(false);
-
   // PDF State
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
