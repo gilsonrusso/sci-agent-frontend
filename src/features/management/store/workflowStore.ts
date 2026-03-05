@@ -15,6 +15,10 @@ interface WorkflowState {
     requestApproval: (articleId: string, targetStage: MacroStatus) => void;
     approveRequest: (requestId: string) => void;
     rejectRequest: (requestId: string) => void;
+
+    // UI Split View
+    activeArticleId: string | null;
+    setActiveArticle: (id: string | null) => void;
 }
 
 // Mock Data
@@ -75,8 +79,10 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     articles: MOCK_ARTICLES,
     approvals: MOCK_APPROVALS,
     currentUserRole: 'MENTOR', // Default para ver tudo no início do dev
+    activeArticleId: null,
 
     setRole: (role) => set({ currentUserRole: role }),
+    setActiveArticle: (id) => set({ activeArticleId: id }),
 
     moveArticleStage: (articleId, newStage) => set((state) => ({
         articles: state.articles.map(art =>

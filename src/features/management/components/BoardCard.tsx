@@ -1,5 +1,6 @@
 import { Box, Typography, Avatar, AvatarGroup, Chip, LinearProgress } from '@mui/material';
 import { Description, ChatBubbleOutline } from '@mui/icons-material';
+import { useWorkflowStore } from '../store/workflowStore';
 import type { Article } from '../types/workflow';
 
 interface BoardCardProps {
@@ -7,6 +8,8 @@ interface BoardCardProps {
 }
 
 export default function BoardCard({ article }: BoardCardProps) {
+    const setActiveArticle = useWorkflowStore(state => state.setActiveArticle);
+
     // Cor baseada no status (como labels no GitHub)
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -22,20 +25,22 @@ export default function BoardCard({ article }: BoardCardProps) {
     };
 
     return (
-        <Box sx={{
-            backgroundColor: '#161B22',
-            border: '1px solid #30363D',
-            borderRadius: '6px',
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1.5,
-            cursor: 'grab',
-            '&:hover': {
-                borderColor: '#8B949E',
-                backgroundColor: '#1C2128'
-            }
-        }}>
+        <Box
+            onClick={() => setActiveArticle(article.id)}
+            sx={{
+                backgroundColor: '#161B22',
+                border: '1px solid #30363D',
+                borderRadius: '6px',
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                cursor: 'grab',
+                '&:hover': {
+                    borderColor: '#8B949E',
+                    backgroundColor: '#1C2128'
+                }
+            }}>
             {/* Labels / Tags */}
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip

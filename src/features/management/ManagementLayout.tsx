@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router';
 import { Box, Typography, Button, IconButton, Avatar, Chip } from '@mui/material';
 import { Science, ArrowBack, Settings, Search, FilterList } from '@mui/icons-material';
 import { useWorkflowStore } from './store/workflowStore';
+import ApprovalDrawer from './components/ApprovalDrawer';
 
 export default function ManagementLayout() {
     const navigate = useNavigate();
@@ -104,6 +105,8 @@ export default function ManagementLayout() {
                 <Outlet />
             </Box>
 
+            {/* Split-View PR Style Review Drawer */}
+            <ApprovalDrawer />
         </Box>
     );
 }
