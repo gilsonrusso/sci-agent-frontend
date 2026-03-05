@@ -18,6 +18,7 @@ import {
 import { CheckCircleOutline } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useParams } from 'react-router';
 import { projectsApi } from '../dashboard/projectsApi';
 import { useAppSelector } from '../../store/hooks';
