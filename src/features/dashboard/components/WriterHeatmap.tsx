@@ -39,7 +39,7 @@ export default function WriterHeatmap() {
                     startDate={subDays(today, 150)}
                     endDate={today}
                     values={randomValues}
-                    classForValue={(value: { count: number } | undefined) => {
+                    classForValue={(value: any) => {
                         if (!value || value.count === 0) {
                             return 'color-empty';
                         }

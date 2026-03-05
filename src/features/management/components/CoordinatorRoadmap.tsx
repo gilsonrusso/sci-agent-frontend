@@ -1,4 +1,5 @@
-import { Box, Typography, Avatar } from '@mui/material';
+import { Box, Typography, Avatar, Tooltip } from '@mui/material';
+import { WarningAmber, ErrorOutline } from '@mui/icons-material';
 import { useWorkflowStore } from '../store/workflowStore';
 import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 
@@ -77,6 +78,24 @@ export default function CoordinatorRoadmap() {
                     const offsetDays = differenceInDays(createdDate, startDate);
                     const durationDays = differenceInDays(deadlineDate, createdDate);
 
+                    // Mock Predictive Risk for Demo
+                    const riskRandom = Math.random();
+                    let riskLevel = 'LOW';
+                    if (riskRandom > 0.8) riskLevel = 'HIGH';
+                    else if (riskRandom > 0.6) riskLevel = 'MEDIUM';
+
+                    const getRiskColor = () => {
+                        if (riskLevel === 'HIGH') return '#F85149';
+                        if (riskLevel === 'MEDIUM') return '#D29922';
+                        return '#238636';
+                    };
+
+                    const getRiskIcon = () => {
+                        if (riskLevel === 'HIGH') return <ErrorOutline sx={{ fontSize: 14, color: '#F85149' }} />;
+                        if (riskLevel === 'MEDIUM') return <WarningAmber sx={{ fontSize: 14, color: '#D29922' }} />;
+                        return null; // <CheckCircleOutline sx={{ fontSize: 14, color: '#238636' }} />;
+                    };
+
                     return (
                         <Box key={article.id} sx={{
                             display: 'flex',
@@ -122,24 +141,33 @@ export default function CoordinatorRoadmap() {
 
                                 {/* The Gantt Bar */}
                                 {offsetDays > -30 && ( // Just to show something on screen
-                                    <Box sx={{
-                                        position: 'absolute',
-                                        left: Math.max(0, offsetDays * dayWidth + 10),
-                                        width: Math.max(50, durationDays * dayWidth),
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        height: 24,
-                                        backgroundColor: '#23863620',
-                                        border: '1px solid #238636',
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        px: 1.5
-                                    }}>
-                                        <Typography noWrap sx={{ color: '#3FB950', fontSize: 11, fontWeight: 600 }}>
-                                            {article.macroStatus.replace('_', ' ')}
-                                        </Typography>
-                                    </Box>
+                                    <Tooltip title={`Risk Level: ${riskLevel} - AI predicts delivery in ${durationDays} days`}>
+                                        <Box sx={{
+                                            position: 'absolute',
+                                            left: Math.max(0, offsetDays * dayWidth + 10),
+                                            width: Math.max(50, durationDays * dayWidth),
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            height: 24,
+                                            backgroundColor: `${getRiskColor()}20`,
+                                            border: `1px solid ${getRiskColor()}80`,
+                                            borderRadius: '12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            px: 1.5,
+                                            gap: 1,
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.2s ease',
+                                            '&:hover': {
+                                                transform: 'translateY(-50%) scale(1.02)'
+                                            }
+                                        }}>
+                                            {getRiskIcon()}
+                                            <Typography noWrap sx={{ color: getRiskColor(), fontSize: 11, fontWeight: 600 }}>
+                                                {article.macroStatus.replace('_', ' ')}
+                                            </Typography>
+                                        </Box>
+                                    </Tooltip>
                                 )}
                             </Box>
                         </Box>
