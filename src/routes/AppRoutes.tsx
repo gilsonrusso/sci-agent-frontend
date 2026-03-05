@@ -5,6 +5,8 @@ import EditorPage from '../features/editor/EditorPage';
 import ProjectSettingsPage from '../features/settings/ProjectSettingsPage';
 import OnboardingChat from '../features/onboarding/components/OnboardingChat';
 import NotFoundPage from '../features/misc/NotFoundPage';
+import ManagementLayout from '../features/management/ManagementLayout';
+import MentorBoard from '../features/management/components/MentorBoard';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRoutes = () => (
@@ -18,6 +20,14 @@ export const AppRoutes = () => (
       <Route path='/editor/:id' element={<EditorPage />} />
       <Route path='/settings/:id' element={<ProjectSettingsPage />} />
       <Route path='/onboarding' element={<OnboardingChat />} />
+
+      {/* Management / Workflow Engine Routes */}
+      <Route path='/management' element={<ManagementLayout />}>
+        {/* Placeholder redirect will go here if needed, default to board */}
+        <Route index element={<MentorBoard />} />
+        <Route path='board' element={<MentorBoard />} />
+        <Route path='roadmap' element={<div style={{ padding: 20 }}>Roadmap View (Coming Soon)</div>} />
+      </Route>
     </Route>
 
     {/* Catch-all */}
