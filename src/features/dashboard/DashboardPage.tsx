@@ -41,6 +41,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useAppSelector } from '../../store/hooks';
 import {
   CartesianGrid,
   Line,
@@ -76,6 +77,12 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { sendNotification } = useNotifications();
+  const user = useAppSelector((state) => state.auth.user);
+
+  // Handle redirects or varying UIs based on User Role
+  const isAuthor = user?.role === 'AUTHOR';
+  const isCoordinator = user?.role === 'COORDINATOR';
+  const isMentor = user?.role === 'MENTOR';
 
   // Fetch Projects
   const { data: projects, isLoading: isLoadingProjects } = useQuery({
@@ -137,12 +144,12 @@ export default function DashboardPage() {
   };
 
   const navItems = [
-    { text: 'Projects', icon: <Description />, path: '/dashboard' },
-    { text: 'Tasks', icon: <Assignment />, path: '/tasks' },
-    { text: 'Analytics', icon: <Analytics />, path: '/analytics' },
-    { text: 'New Project AI', icon: <Science />, path: '/onboarding' },
-    { text: 'Account Settings', icon: <Settings />, path: '/settings' },
-  ];
+    { text: 'Projects', icon: <Description />, path: '/dashboard', show: true },
+    { text: 'Board', icon: <Assignment />, path: '/management/board', show: isMentor || isCoordinator },
+    { text: 'Roadmap', icon: <Analytics />, path: '/management/roadmap', show: isCoordinator },
+    { text: 'New Project AI', icon: <Science />, path: '/onboarding', show: isAuthor },
+    { text: 'Account Settings', icon: <Settings />, path: '/settings', show: true },
+  ].filter(item => item.show);
 
   const drawer = (
     <Box sx={{ width: 260, height: '100%', backgroundColor: '#1A1F2E' }}>
@@ -233,54 +240,60 @@ export default function DashboardPage() {
           >
             <Box>
               <Typography variant='h4' sx={{ fontWeight: 600, mb: 1 }}>
-                Welcome back, Dr. Smith
+                Welcome back, {user?.full_name || 'User'}
               </Typography>
               <Typography variant='body1' color='text.secondary'>
-                You have {projects?.length || 0} active projects and {(tasks || []).length} tasks
+                Role: {user?.role || 'AUTHOR'} | You have {projects?.length || 0} active projects
               </Typography>
             </Box>
-            <IconButton
-              onClick={() => setCreateDialogOpen(true)}
-              sx={{
-                backgroundColor: '#10B981',
-                color: '#fff',
-                '&:hover': { backgroundColor: '#059669' },
-                width: 56,
-                height: 56,
-              }}
-            >
-              <Add />
-            </IconButton>
+            {isAuthor && (
+              <IconButton
+                onClick={() => setCreateDialogOpen(true)}
+                sx={{
+                  backgroundColor: '#10B981',
+                  color: '#fff',
+                  '&:hover': { backgroundColor: '#059669' },
+                  width: 56,
+                  height: 56,
+                }}
+              >
+                <Add />
+              </IconButton>
+            )}
           </Box>
 
           <Grid container spacing={3}>
-            {/* Analytics Widget */}
-            <Grid size={{ xs: 12, lg: 8 }}>
-              <WriterHeatmap />
+            {/* Analytics Widget (For Authors mostly, or combined) */}
+            {isAuthor && (
+              <Grid size={{ xs: 12, lg: 8 }}>
+                <WriterHeatmap />
 
-              <Paper sx={{ p: 3, backgroundColor: '#1A1F2E', mb: 3 }}>
-                <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
-                  Writing Progress
-                </Typography>
-                <ResponsiveContainer width='100%' height={250}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray='3 3' stroke='rgba(255,255,255,0.1)' />
-                    <XAxis dataKey='date' stroke='#9CA3AF' />
-                    <YAxis stroke='#9CA3AF' />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1A1F2E',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                      }}
-                    />
-                    <Line type='monotone' dataKey='words' stroke='#10B981' strokeWidth={3} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Paper>
+                <Paper sx={{ p: 3, backgroundColor: '#1A1F2E', mb: 3 }}>
+                  <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
+                    Writing Progress
+                  </Typography>
+                  <ResponsiveContainer width='100%' height={250}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray='3 3' stroke='rgba(255,255,255,0.1)' />
+                      <XAxis dataKey='date' stroke='#9CA3AF' />
+                      <YAxis stroke='#9CA3AF' />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1A1F2E',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                        }}
+                      />
+                      <Line type='monotone' dataKey='words' stroke='#10B981' strokeWidth={3} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+            )}
 
+            <Grid size={{ xs: 12, lg: isAuthor ? 4 : 12 }}>
               {/* Project Cards */}
               <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
-                Active Projects
+                {isAuthor ? 'My Active Projects' : 'All Institutional Projects'}
               </Typography>
 
               {isLoadingProjects ? (
@@ -348,16 +361,18 @@ export default function DashboardPage() {
                               </Typography>
                             </CardContent>
                           </CardActionArea>
-                          <IconButton
-                            size='small'
-                            sx={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/settings/${project.id}`);
-                            }}
-                          >
-                            <Settings fontSize='small' />
-                          </IconButton>
+                          {isAuthor && (
+                            <IconButton
+                              size='small'
+                              sx={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/settings/${project.id}`);
+                              }}
+                            >
+                              <Settings fontSize='small' />
+                            </IconButton>
+                          )}
                         </Stack>
                       </Card>
                     </Grid>

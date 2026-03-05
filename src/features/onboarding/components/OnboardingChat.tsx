@@ -1,9 +1,7 @@
-import { RecordVoiceOverTwoTone, Send, SmartToyTwoTone, AutoAwesome, ArrowBack } from '@mui/icons-material';
+import { Send, AutoAwesome, ArrowBack } from '@mui/icons-material';
 import {
   Box,
   Button,
-  CircularProgress,
-  Container,
   IconButton,
   List,
   ListItem,
@@ -13,9 +11,7 @@ import {
   Typography,
   Select,
   MenuItem,
-  FormControl,
   Fade,
-  InputAdornment,
 } from '@mui/material';
 import { TuneRounded } from '@mui/icons-material';
 import { useEffect, useRef, useState } from 'react';
@@ -78,14 +74,7 @@ export default function OnboardingChat() {
     }
   };
 
-  const renderMessageContent = (msg: any) => {
-    // Default Text Display
-    return (
-      <Typography variant='body1' sx={{ whiteSpace: 'pre-wrap' }}>
-        {msg.content}
-      </Typography>
-    );
-  };
+
 
   const hitlRequest = pendingInterruptsList[0]?.value as any | undefined;
   const hitlInterruptId = pendingInterruptsList[0]?.id as string | undefined;
@@ -94,7 +83,7 @@ export default function OnboardingChat() {
   const pendingActions = hitlRequest?.action_requests || hitlRequest?.actionRequests || [];
   const isPendingInterrupt = pendingActions.length > 0;
 
-  const handleApproveInterrupt = async (index: number) => {
+  const handleApproveInterrupt = async () => {
     if (!hitlRequest || !hitlInterruptId) return;
 
     console.log("[handleApprove] Submitting resume. ID:", hitlInterruptId);
@@ -121,7 +110,7 @@ export default function OnboardingChat() {
     }
   };
 
-  const handleRejectInterrupt = async (index: number, reason: string) => {
+  const handleRejectInterrupt = async (reason: string) => {
     if (!hitlRequest || !hitlInterruptId) return;
 
     console.log("[handleReject] Submitting resume. ID:", hitlInterruptId);
@@ -271,10 +260,10 @@ export default function OnboardingChat() {
                       </Typography>
                     )}
                     <Stack direction="row" spacing={2}>
-                      <Button variant="contained" sx={{ bgcolor: '#a8c7fa', color: '#000', '&:hover': { bgcolor: '#8ab4f8' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleApproveInterrupt(i)}>
+                      <Button variant="contained" sx={{ bgcolor: '#a8c7fa', color: '#000', '&:hover': { bgcolor: '#8ab4f8' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleApproveInterrupt()}>
                         Aprovar
                       </Button>
-                      <Button variant="outlined" sx={{ color: '#e3e3e3', borderColor: '#5f6368', '&:hover': { borderColor: '#e3e3e3', bgcolor: 'rgba(255,255,255,0.05)' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleRejectInterrupt(i, "Usuário rejeitou.")}>
+                      <Button variant="outlined" sx={{ color: '#e3e3e3', borderColor: '#5f6368', '&:hover': { borderColor: '#e3e3e3', bgcolor: 'rgba(255,255,255,0.05)' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleRejectInterrupt("Usuário rejeitou.")}>
                         Rejeitar
                       </Button>
                     </Stack>

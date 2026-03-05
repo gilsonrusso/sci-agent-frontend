@@ -15,7 +15,6 @@ export default function CoordinatorRoadmap() {
         { name: format(addDays(endOfMonth(startDate), 1), 'MMMM yyyy'), days: eachDayOfInterval({ start: startOfMonth(addDays(endOfMonth(startDate), 1)), end: endOfMonth(addDays(endOfMonth(startDate), 1)) }).length }
     ];
 
-    const timelineDays = 60; // Mostrar 2 meses por padrão
     const dayWidth = 24; // pixels por dia na timeline
 
     return (

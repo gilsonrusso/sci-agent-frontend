@@ -21,10 +21,13 @@ export interface AuthResponse {
   token_type: string;
 }
 
+export type UserRole = 'AUTHOR' | 'COORDINATOR' | 'MENTOR';
+
 export interface User {
-  id: number;
+  id: string; // Updated to match backend UUID
   email: string;
   full_name?: string | null;
+  role: UserRole;
   is_active: boolean;
   is_superuser: boolean;
 }
