@@ -12,13 +12,13 @@ import {
   Toolbar,
   Typography,
   Tooltip,
-  Fade
+  Fade,
+  Drawer
 } from '@mui/material';
 import { CheckCircleOutline } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { Group, Panel, Separator } from 'react-resizable-panels';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { projectsApi } from '../dashboard/projectsApi';
 import { useAppSelector } from '../../store/hooks';
 import { stringToColor } from '../../lib/colors';
@@ -37,11 +37,20 @@ import { basicSetup } from 'codemirror';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 
 import AIChatSidebar from './components/AIChatSidebar';
+import WorkflowSidebar from './components/WorkflowSidebar';
+import EditorProjectsSidebar from './components/EditorProjectsSidebar';
+import { useWorkflowStore } from '../management/store/workflowStore';
 
 export default function EditorPage() {
   const { id: projectId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+
+  // Workflow Store
+  const { articles, requestApproval, currentUserRole } = useWorkflowStore();
+  const article = articles.find(a => a.id === projectId) || articles[0]; // Fallback for demo
+
+  // Permissions Logic
+  const isLockedForAuthor = currentUserRole === 'AUTHOR' && ['HUMAN_REVIEW', 'APPROVED', 'SUBMITTED', 'AI_REVIEW'].includes(article.macroStatus);
 
   // Editor Ref
   const editorRef = useRef<HTMLDivElement>(null);
@@ -53,6 +62,7 @@ export default function EditorPage() {
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isProjectsSidebarOpen, setIsProjectsSidebarOpen] = useState(false);
 
   // Modern UX States
   const [isZenMode, setIsZenMode] = useState(false);
@@ -184,6 +194,7 @@ export default function EditorPage() {
         markdown(),
         EditorView.lineWrapping,
         oneDark,
+        EditorState.readOnly.of(isLockedForAuthor),
         yCollab(ytext, provider.awareness),
         // EditorView.updateListener.of(() => {}),
       ],
@@ -251,7 +262,7 @@ export default function EditorPage() {
               color='inherit'
               aria-label='menu'
               sx={{ mr: 2 }}
-              onClick={() => navigate('/dashboard')}
+              onClick={() => setIsProjectsSidebarOpen(true)}
             >
               <MenuIcon />
             </IconButton>
@@ -388,22 +399,56 @@ export default function EditorPage() {
             </Box>
           </Panel>
 
-          {/* Panel 3: Chat (Conditional) */}
-          {isChatOpen && (
+          {/* Panel 3: Workflow Checklist (Hidden in Zen Mode) */}
+          {!isZenMode && (
             <>
-              <Separator style={{ border: '1px solid #ccc' }} />
-              <Panel defaultSize={500} minSize={350} maxSize={800}>
-                <AIChatSidebar
-                  open={isChatOpen}
-                  onClose={() => setIsChatOpen(false)}
-                  projectId={projectId!}
-                  getContext={() => viewRef.current?.state.doc.toString() || ''}
+              <Separator style={{ border: '1px solid #30363D' }} />
+              <Panel defaultSize={20} minSize={15} maxSize={30}>
+                <WorkflowSidebar
+                  article={article}
+                  onRequestReview={() => {
+                    requestApproval(article.id, 'HUMAN_REVIEW');
+                    alert('Artigo enviado para revisão do Mentor/Coordenador com sucesso!');
+                  }}
                 />
               </Panel>
             </>
           )}
+
         </Group>
       </Box>
+
+      {/* RAG/AI Drawer (Floating Top Layer) */}
+      <Drawer
+        anchor="right"
+        open={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        variant="temporary"
+        PaperProps={{
+          sx: {
+            width: { xs: '100vw', sm: 400, md: 500 },
+            backgroundColor: '#0D1117',
+            borderLeft: '1px solid #30363D'
+          }
+        }}
+        slotProps={{
+          backdrop: { sx: { backgroundColor: 'transparent' } }
+        }}
+      >
+        <AIChatSidebar
+          open={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          projectId={projectId!}
+          getContext={() => viewRef.current?.state.doc.toString() || ''}
+        />
+      </Drawer>
+
+      {/* Left Sidebar (Projects) */}
+      <EditorProjectsSidebar
+        open={isProjectsSidebarOpen}
+        onClose={() => setIsProjectsSidebarOpen(false)}
+        currentProjectId={projectId || ''}
+      />
     </Box>
   );
 }

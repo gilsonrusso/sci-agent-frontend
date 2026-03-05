@@ -5,7 +5,6 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import {
   Box,
   CircularProgress,
-  Divider,
   IconButton,
   List,
   ListItem,
@@ -108,20 +107,17 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: 'background.paper',
-        borderLeft: 1,
-        borderColor: 'divider',
+        bgcolor: '#0D1117',
       }}
     >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant='h6' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SmartToyIcon color='primary' /> AI Assistant
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#161B22', borderBottom: '1px solid #30363D' }}>
+        <Typography variant='h6' sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#C9D1D9', fontSize: 16 }}>
+          <SmartToyIcon sx={{ color: '#D2A8FF' }} /> SciAgent Copilot
         </Typography>
-        <IconButton onClick={onClose}>
+        <IconButton onClick={onClose} sx={{ color: '#8B949E' }}>
           <CloseIcon />
         </IconButton>
       </Box>
-      <Divider />
 
       <List sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
         {messages.map((msg, index) => (
@@ -136,8 +132,9 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
               sx={{
                 p: 1.5,
                 maxWidth: '90%',
-                bgcolor: msg.role === 'user' ? 'primary.light' : 'secondary.light',
-                color: msg.role === 'user' ? 'primary.contrastText' : 'secondary.contrastText',
+                bgcolor: msg.role === 'user' ? '#1F6FEB' : '#161B22',
+                color: msg.role === 'user' ? '#FFFFFF' : '#C9D1D9',
+                border: msg.role === 'user' ? 'none' : '1px solid #30363D',
                 borderRadius: 2,
               }}
             >
@@ -145,11 +142,11 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
               </Typography>
             </Paper>
-            <Typography variant='caption' color='text.secondary' sx={{ mt: 0.5 }}>
+            <Typography variant='caption' sx={{ mt: 0.5, color: '#8B949E' }}>
               {msg.role === 'user' ? (
                 <PersonIcon fontSize='small' />
               ) : (
-                <SmartToyIcon fontSize='small' />
+                <SmartToyIcon fontSize='small' sx={{ color: '#D2A8FF' }} />
               )}
             </Typography>
           </ListItem>
@@ -162,7 +159,7 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
         <div ref={messagesEndRef} />
       </List>
 
-      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+      <Box sx={{ p: 2, borderTop: '1px solid #30363D', backgroundColor: '#161B22' }}>
         <TextField
           fullWidth
           size='small'
@@ -171,12 +168,21 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
           disabled={isLoading}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              color: '#C9D1D9',
+              backgroundColor: '#0D1117',
+              '& fieldset': { borderColor: '#30363D' },
+              '&:hover fieldset': { borderColor: '#8B949E' },
+              '&.Mui-focused fieldset': { borderColor: '#58A6FF' },
+            }
+          }}
           InputProps={{
             endAdornment: (
               <IconButton
                 onClick={handleSend}
                 disabled={isLoading || !input.trim()}
-                color='primary'
+                sx={{ color: '#58A6FF', '&.Mui-disabled': { color: '#30363D' } }}
               >
                 <SendIcon />
               </IconButton>
