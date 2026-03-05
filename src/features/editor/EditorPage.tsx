@@ -11,7 +11,10 @@ import {
   IconButton,
   Toolbar,
   Typography,
+  Tooltip,
+  Fade
 } from '@mui/material';
+import { CheckCircleOutline } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -51,16 +54,35 @@ export default function EditorPage() {
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // Modern UX States
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [dailyWords] = useState(350); // Mock data for Progress Ring
+  const dailyGoal = 500;
+  const progressPercent = Math.min((dailyWords / dailyGoal) * 100, 100);
+
   // Yjs Provider State
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
   const providerRef = useRef<WebsocketProvider | null>(null);
 
-  // Fetch Project Metadata (renamed loading variable to avoid conflict if needed, but existing is fine)
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.getProject(projectId!),
     enabled: !!projectId,
   });
+
+  // Global Keyboard Shortcuts (Zen Mode)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+B or Ctrl+B specifically for Zen Mode
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setIsZenMode(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Handle Compile
   const handleCompile = async () => {
@@ -210,52 +232,105 @@ export default function EditorPage() {
         bgcolor: 'background.default',
       }}
     >
-      {/* Toolbar */}
-      <AppBar
-        position='static'
-        color='default'
-        sx={{ borderBottom: 1, borderColor: 'divider', boxShadow: 'none' }}
-      >
-        <Toolbar variant='dense'>
-          <IconButton
-            edge='start'
-            color='inherit'
-            aria-label='menu'
-            sx={{ mr: 2 }}
-            onClick={() => navigate('/dashboard')}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant='h6' color='inherit' component='div' sx={{ flexGrow: 1 }}>
-            {project.title}
-          </Typography>
+      {/* Toolbar - Hidden in Zen Mode */}
+      <Fade in={!isZenMode} mountOnEnter unmountOnExit>
+        <AppBar
+          position='static'
+          color='default'
+          sx={{
+            borderBottom: 1,
+            borderColor: '#30363D',
+            boxShadow: 'none',
+            backgroundColor: '#161B22',
+            color: '#C9D1D9'
+          }}
+        >
+          <Toolbar variant='dense'>
+            <IconButton
+              edge='start'
+              color='inherit'
+              aria-label='menu'
+              sx={{ mr: 2 }}
+              onClick={() => navigate('/dashboard')}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant='h6' color='#F0F6FC' component='div' sx={{ flexGrow: 1, fontSize: 16 }}>
+              {project.title}
+            </Typography>
 
-          {/* Connected Users */}
-          <ConnectedUsers provider={provider} />
+            {/* Daily Progress Ring */}
+            <Tooltip title={`${dailyWords} / ${dailyGoal} words today`}>
+              <Box sx={{ position: 'relative', display: 'inline-flex', mr: 3, alignItems: 'center', gap: 1, cursor: 'pointer' }}>
+                <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                  <CircularProgress variant="determinate" value={100} size={28} sx={{ color: '#30363D' }} />
+                  <CircularProgress
+                    variant="determinate"
+                    value={progressPercent}
+                    size={28}
+                    sx={{
+                      color: progressPercent >= 100 ? '#238636' : '#58A6FF',
+                      position: 'absolute',
+                      left: 0
+                    }}
+                  />
+                </Box>
+                {progressPercent >= 100 ? (
+                  <CheckCircleOutline sx={{ color: '#238636', fontSize: 18 }} />
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#8B949E', fontWeight: 600 }}>{Math.round(progressPercent)}%</Typography>
+                )}
+              </Box>
+            </Tooltip>
 
-          <Button
-            variant='outlined'
-            startIcon={<SmartToyIcon />}
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            sx={{ mr: 2 }}
-          >
-            AI Assistant
-          </Button>
+            {/* Connected Users */}
+            <ConnectedUsers provider={provider} />
 
-          <Button
-            variant='contained'
-            color='success'
-            startIcon={isCompiling ? <CircularProgress size={20} color='inherit' /> : <PlayIcon />}
-            onClick={handleCompile}
-            disabled={isCompiling}
-          >
-            {isCompiling ? 'Compiling...' : 'Recompile'}
-          </Button>
-        </Toolbar>
-      </AppBar>
+            <Button
+              variant='outlined'
+              startIcon={<SmartToyIcon />}
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              sx={{
+                mr: 2,
+                color: '#D2A8FF',
+                borderColor: '#D2A8FF50',
+                textTransform: 'none',
+                '&:hover': { borderColor: '#D2A8FF' }
+              }}
+            >
+              Copilot
+            </Button>
+
+            <Button
+              variant='contained'
+              startIcon={isCompiling ? <CircularProgress size={20} color='inherit' /> : <PlayIcon />}
+              onClick={handleCompile}
+              disabled={isCompiling}
+              sx={{
+                backgroundColor: '#238636',
+                color: '#ffffff',
+                textTransform: 'none',
+                fontWeight: 600,
+                boxShadow: 'none',
+                '&:hover': { backgroundColor: '#2EA043', boxShadow: 'none' }
+              }}
+            >
+              {isCompiling ? 'Compiling...' : 'Recompile'}
+            </Button>
+          </Toolbar>
+        </AppBar>
+      </Fade>
 
       {/* Main Content: Split Pane */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+      <Box sx={{ flexGrow: 1, overflow: 'hidden', backgroundColor: '#0D1117' }}>
+        {/* Subtle hint for Zen Mode early on */}
+        {isZenMode && (
+          <Box sx={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, pointerEvents: 'none' }}>
+            <Typography sx={{ color: '#8B949E', fontSize: 12, backgroundColor: '#161B2290', px: 2, py: 0.5, borderRadius: 5 }}>
+              Zen Mode Active (Press Cmd+B to exit)
+            </Typography>
+          </Box>
+        )}
         <Group orientation='horizontal'>
           {/* Panel 1: Editor */}
           <Panel defaultSize={'50%'} minSize={'33%'} maxSize={'50%'}>

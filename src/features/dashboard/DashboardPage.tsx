@@ -52,6 +52,7 @@ import {
 } from 'recharts';
 import { projectsApi, type ProjectCreate, type ProjectTask } from './projectsApi';
 import TaskCard from './components/TaskCard';
+import WriterHeatmap from './components/WriterHeatmap';
 import { useNotifications } from '../../hooks/useNotifications';
 
 const chartData = [
@@ -255,6 +256,8 @@ export default function DashboardPage() {
           <Grid container spacing={3}>
             {/* Analytics Widget */}
             <Grid size={{ xs: 12, lg: 8 }}>
+              <WriterHeatmap />
+
               <Paper sx={{ p: 3, backgroundColor: '#1A1F2E', mb: 3 }}>
                 <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
                   Writing Progress

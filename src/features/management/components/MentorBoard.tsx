@@ -1,7 +1,7 @@
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { useWorkflowStore } from '../store/workflowStore';
-import BoardColumn from './BoardColumn';
 import type { MacroStatus } from '../types/workflow';
+import BoardColumn from './BoardColumn';
 
 const STAGES: { id: MacroStatus; title: string }[] = [
     { id: 'IDEATION', title: 'Ideation' },

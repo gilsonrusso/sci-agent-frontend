@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Article, ApprovalRequest, MacroStatus, UserRole } from '../types/workflow';
+import type { ApprovalRequest, Article, MacroStatus, UserRole } from '../types/workflow';
 
 interface WorkflowState {
     // Dados Emulados

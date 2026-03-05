@@ -1,5 +1,5 @@
-import { Box, Typography, IconButton, Chip } from '@mui/material';
-import { MoreHoriz, Add } from '@mui/icons-material';
+import { Add, MoreHoriz } from '@mui/icons-material';
+import { Box, Chip, IconButton, Typography } from '@mui/material';
 import type { Article, MacroStatus } from '../types/workflow';
 import BoardCard from './BoardCard';
 
