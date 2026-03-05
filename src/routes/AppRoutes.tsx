@@ -7,6 +7,7 @@ import OnboardingChat from '../features/onboarding/components/OnboardingChat';
 import NotFoundPage from '../features/misc/NotFoundPage';
 import ManagementLayout from '../features/management/ManagementLayout';
 import MentorBoard from '../features/management/components/MentorBoard';
+import CoordinatorRoadmap from '../features/management/components/CoordinatorRoadmap';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRoutes = () => (
@@ -26,7 +27,7 @@ export const AppRoutes = () => (
         {/* Placeholder redirect will go here if needed, default to board */}
         <Route index element={<MentorBoard />} />
         <Route path='board' element={<MentorBoard />} />
-        <Route path='roadmap' element={<div style={{ padding: 20 }}>Roadmap View (Coming Soon)</div>} />
+        <Route path='roadmap' element={<CoordinatorRoadmap />} />
       </Route>
     </Route>
 
