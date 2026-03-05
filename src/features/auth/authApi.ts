@@ -19,6 +19,10 @@ export type RegisterRequest = z.infer<typeof RegisterSchema>;
 export interface AuthResponse {
   access_token: string;
   token_type: string;
+  user_id: string;
+  role: UserRole;
+  email: string;
+  full_name?: string | null;
 }
 
 export type UserRole = 'AUTHOR' | 'COORDINATOR' | 'MENTOR';
