@@ -1,63 +1,122 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, type ThemeOptions } from '@mui/material';
 
-const theme = createTheme({
+const typography: ThemeOptions['typography'] = {
+  fontFamily: ['Inter', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'].join(','),
+};
+
+const components: ThemeOptions['components'] = {
+  MuiCssBaseline: {
+    styleOverrides: (theme) => ({
+      '*::-webkit-scrollbar': {
+        width: '8px',
+        height: '8px',
+      },
+      '*::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      '*::-webkit-scrollbar-thumb': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#5F6368' : '#DADCE0',
+        borderRadius: '8px',
+      },
+      '*::-webkit-scrollbar-thumb:hover': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#9AA0A6' : '#BDC1C6',
+      },
+    }),
+  },
+  MuiButton: {
+    styleOverrides: {
+      root: {
+        textTransform: 'none',
+        borderRadius: 24,
+        fontWeight: 600,
+        boxShadow: 'none',
+        '&:hover': {
+          boxShadow: 'none',
+        },
+      },
+    },
+  },
+  MuiCard: {
+    styleOverrides: {
+      root: {
+        borderRadius: 16,
+        backgroundImage: 'none',
+        boxShadow: 'none',
+        border: '1px solid',
+      },
+    },
+  },
+  MuiPaper: {
+    styleOverrides: {
+      root: {
+        backgroundImage: 'none',
+        boxShadow: 'none',
+      },
+    },
+  },
+  MuiOutlinedInput: {
+    styleOverrides: {
+      root: {
+        borderRadius: 24,
+        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+          borderWidth: '1px',
+        },
+      },
+    },
+  },
+};
+
+export const lightTheme = createTheme({
+  typography,
+  components,
   palette: {
-    mode: 'dark',
+    mode: 'light',
+    aiGradient: 'linear-gradient(90deg, #4285f4, #d96570, #bc65d9, #131314)',
     primary: {
-      main: '#3949AB', // Deep Indigo
-      light: '#5C6BC0',
-      dark: '#283593',
+      main: '#4285F4',
+      dark: '#1A73E8',
     },
     secondary: {
-      main: '#10B981', // Emerald Green
-      light: '#34D399',
-      dark: '#059669',
+      main: '#EA4335',
     },
     background: {
-      default: '#0F1419',
-      paper: '#1A1F2E',
+      default: '#FFFFFF',
+      paper: '#F8F9FA',
     },
     text: {
-      primary: '#E5E7EB',
-      secondary: '#9CA3AF',
+      primary: '#1F1F1F',
+      secondary: '#5F6368',
     },
+    divider: '#E3E3E3',
   },
-  typography: {
-    fontFamily: 'Inter, Roboto, sans-serif',
-    h1: { fontFamily: 'Inter, sans-serif', fontWeight: 600 },
-    h2: { fontFamily: 'Inter, sans-serif', fontWeight: 600 },
-    h3: { fontFamily: 'Inter, sans-serif', fontWeight: 600 },
-    h4: { fontFamily: 'Inter, sans-serif', fontWeight: 600 },
-    h5: { fontFamily: 'Inter, sans-serif', fontWeight: 500 },
-    h6: { fontFamily: 'Inter, sans-serif', fontWeight: 500 },
-    body1: { fontFamily: 'Inter, Roboto, sans-serif' },
-    body2: { fontFamily: 'Inter, Roboto, sans-serif' },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: 8,
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          backgroundImage: 'none',
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none',
-        },
-      },
-    },
+  shape: {
+    borderRadius: 12,
   },
 });
 
-export default theme;
+export const darkTheme = createTheme({
+  typography,
+  components,
+  palette: {
+    mode: 'dark',
+    aiGradient: 'linear-gradient(90deg, #A8C7FA 0%, #F28B82 33%, #FDE293 66%, #81C995 100%)',
+    primary: {
+      main: '#A8C7FA',
+    },
+    secondary: {
+      main: '#F28B82',
+    },
+    background: {
+      default: '#131314',
+      paper: '#1E1F20',
+    },
+    text: {
+      primary: '#E3E3E3',
+      secondary: '#9AA0A6',
+    },
+    divider: '#3C4043',
+  },
+  shape: {
+    borderRadius: 12,
+  },
+});

@@ -19,7 +19,6 @@ import { useNavigate } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 import { sendMessage, resumeMessage, type InterruptActionRequest } from '../onboardingApi';
 
-
 export default function OnboardingChat() {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
@@ -49,8 +48,8 @@ export default function OnboardingChat() {
     if (!input.trim() || isLoading) return;
 
     const userText = input;
-    // Mostra o texto do usuário instantaneamente 
-    setLocalMessages(prev => [...prev, { id: Date.now(), type: 'human', content: userText }]);
+    // Mostra o texto do usuário instantaneamente
+    setLocalMessages((prev) => [...prev, { id: Date.now(), type: 'human', content: userText }]);
     setInput('');
     setIsLoading(true);
 
@@ -59,22 +58,31 @@ export default function OnboardingChat() {
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
       } else {
-        setLocalMessages(prev => [...prev, {
-          id: data.id,
-          type: 'ai',
-          agent_name: data.agent_name,
-          content: data.text
-        }]);
+        setLocalMessages((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            type: 'ai',
+            agent_name: data.agent_name,
+            content: data.text,
+          },
+        ]);
       }
     } catch (error) {
       console.error(error);
-      setLocalMessages(prev => [...prev, { id: Date.now(), type: 'ai', agent_name: 'system', content: 'Erro ao conectar ao servidor.' }]);
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: 'ai',
+          agent_name: 'system',
+          content: 'Erro ao conectar ao servidor.',
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
-
-
 
   const hitlRequest = pendingInterruptsList[0]?.value as any | undefined;
   const hitlInterruptId = pendingInterruptsList[0]?.id as string | undefined;
@@ -86,22 +94,30 @@ export default function OnboardingChat() {
   const handleApproveInterrupt = async () => {
     if (!hitlRequest || !hitlInterruptId) return;
 
-    console.log("[handleApprove] Submitting resume. ID:", hitlInterruptId);
+    console.log('[handleApprove] Submitting resume. ID:', hitlInterruptId);
 
     setPendingInterruptsList([]);
     setIsLoading(true);
 
     try {
-      const data = await resumeMessage(conversationId, hitlInterruptId, { type: "approve" }, searchSource);
+      const data = await resumeMessage(
+        conversationId,
+        hitlInterruptId,
+        { type: 'approve' },
+        searchSource,
+      );
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
       } else {
-        setLocalMessages(prev => [...prev, {
-          id: data.id,
-          type: 'ai',
-          agent_name: data.agent_name,
-          content: data.text
-        }]);
+        setLocalMessages((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            type: 'ai',
+            agent_name: data.agent_name,
+            content: data.text,
+          },
+        ]);
       }
     } catch (error) {
       console.error(error);
@@ -113,22 +129,30 @@ export default function OnboardingChat() {
   const handleRejectInterrupt = async (reason: string) => {
     if (!hitlRequest || !hitlInterruptId) return;
 
-    console.log("[handleReject] Submitting resume. ID:", hitlInterruptId);
+    console.log('[handleReject] Submitting resume. ID:', hitlInterruptId);
 
     setPendingInterruptsList([]);
     setIsLoading(true);
 
     try {
-      const data = await resumeMessage(conversationId, hitlInterruptId, { type: "reject", message: reason }, searchSource);
+      const data = await resumeMessage(
+        conversationId,
+        hitlInterruptId,
+        { type: 'reject', message: reason },
+        searchSource,
+      );
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
       } else {
-        setLocalMessages(prev => [...prev, {
-          id: data.id,
-          type: 'ai',
-          agent_name: data.agent_name,
-          content: data.text
-        }]);
+        setLocalMessages((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            type: 'ai',
+            agent_name: data.agent_name,
+            content: data.text,
+          },
+        ]);
       }
     } catch (error) {
       console.error(error);
@@ -142,30 +166,67 @@ export default function OnboardingChat() {
       sx={{
         height: '100vh',
         width: '100%',
-        bgcolor: '#131314',
+        bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
       }}
     >
-      <Box sx={{ width: '100%', maxWidth: '900px', flexGrow: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', px: { xs: 2, md: 4 }, pt: 4, pb: 2, '&::-webkit-scrollbar': { width: '8px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#333', borderRadius: '4px' } }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: '900px',
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          px: { xs: 2, md: 4 },
+          pt: 4,
+          pb: 2,
+          '&::-webkit-scrollbar': { width: '8px' },
+          '&::-webkit-scrollbar-thumb': { backgroundColor: 'divider', borderRadius: '4px' },
+        }}
+      >
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => navigate('/dashboard')}
-            sx={{ color: '#a8c7fa', textTransform: 'none', borderRadius: '20px', '&:hover': { bgcolor: 'rgba(168, 199, 250, 0.08)' } }}
+            sx={{
+              color: 'primary.main',
+              textTransform: 'none',
+              borderRadius: '20px',
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
           >
             Voltar ao Dashboard
           </Button>
         </Box>
         {localMessages.length === 0 && (
           <Fade in={true} timeout={1000}>
-            <Box sx={{ mt: '10vh', px: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <Typography variant="h3" sx={{ fontWeight: 500, background: 'linear-gradient(90deg, #4285f4, #d96570, #bc65d9, #131314)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 1 }}>
+            <Box
+              sx={{
+                mt: '10vh',
+                px: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography
+                variant='h3'
+                sx={{
+                  fontWeight: 500,
+                  background: (theme: any) => theme.palette.aiGradient,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  mb: 1,
+                }}
+              >
                 Olá!
               </Typography>
-              <Typography variant="h3" sx={{ fontWeight: 500, color: '#444746' }}>
+              <Typography variant='h3' sx={{ fontWeight: 500, color: 'text.secondary' }}>
                 Como Posso Ajudar?
               </Typography>
             </Box>
@@ -188,8 +249,8 @@ export default function OnboardingChat() {
                 {isHuman ? (
                   <Box
                     sx={{
-                      bgcolor: '#1e1f20',
-                      color: '#e3e3e3',
+                      bgcolor: 'background.paper',
+                      color: 'text.primary',
                       px: 3,
                       py: 1.5,
                       borderRadius: '24px',
@@ -203,10 +264,13 @@ export default function OnboardingChat() {
                   </Box>
                 ) : (
                   <Stack direction='row' spacing={2} sx={{ maxWidth: '100%' }}>
-                    <AutoAwesome sx={{ color: '#a8c7fa', mt: 0.5, fontSize: '1.5rem' }} />
-                    <Box sx={{ width: '100%', color: '#e3e3e3' }}>
+                    <AutoAwesome sx={{ color: 'primary.main', mt: 0.5, fontSize: '1.5rem' }} />
+                    <Box sx={{ width: '100%', color: 'text.primary' }}>
                       {msg.agent_name && msg.agent_name !== 'system' && (
-                        <Typography variant='caption' sx={{ display: 'block', mb: 0.5, color: '#a8c7fa', fontWeight: 500 }}>
+                        <Typography
+                          variant='caption'
+                          sx={{ display: 'block', mb: 0.5, color: 'primary.main', fontWeight: 500 }}
+                        >
                           {msg.agent_name}
                         </Typography>
                       )}
@@ -222,7 +286,13 @@ export default function OnboardingChat() {
           {isLoading && (
             <ListItem sx={{ justifyContent: 'flex-start', px: 0, py: 1 }}>
               <Stack direction='row' spacing={2} alignItems='center'>
-                <AutoAwesome sx={{ color: '#a8c7fa', animation: 'spin 2s linear infinite', fontSize: '1.5rem' }} />
+                <AutoAwesome
+                  sx={{
+                    color: 'primary.main',
+                    animation: 'spin 2s linear infinite',
+                    fontSize: '1.5rem',
+                  }}
+                />
                 <style>
                   {`
                     @keyframes spin {
@@ -236,7 +306,10 @@ export default function OnboardingChat() {
                     }
                   `}
                 </style>
-                <Typography variant='body1' sx={{ color: '#a8c7fa', animation: 'pulse 1.5s ease-in-out infinite' }}>
+                <Typography
+                  variant='body1'
+                  sx={{ color: 'primary.main', animation: 'pulse 1.5s ease-in-out infinite' }}
+                >
                   Pensando...
                 </Typography>
               </Stack>
@@ -245,25 +318,62 @@ export default function OnboardingChat() {
 
           {isPendingInterrupt && (
             <ListItem sx={{ justifyContent: 'center', px: 0, mt: 2 }}>
-              <Box sx={{ width: '100%', p: 3, border: '1px solid #1e1f20', borderRadius: '16px', backgroundColor: '#131314' }}>
-                <Typography variant='subtitle1' color='#a8c7fa' sx={{ fontWeight: 600, mb: 1 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  p: 3,
+                  border: (theme) => `1px solid ${theme.palette.divider}`,
+                  borderRadius: '16px',
+                  backgroundColor: 'background.default',
+                }}
+              >
+                <Typography
+                  variant='subtitle1'
+                  color='primary.main'
+                  sx={{ fontWeight: 600, mb: 1 }}
+                >
                   Ação Requer Aprovação
                 </Typography>
                 {pendingActions.map((action: InterruptActionRequest, i: number) => (
                   <Box key={i} sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#e3e3e3', mb: 1 }}>
+                    <Typography variant='body2' sx={{ color: 'text.primary', mb: 1 }}>
                       Permitir ação: <strong>{action.name || 'Ferramenta'}</strong>?
                     </Typography>
                     {action.description && (
-                      <Typography variant="body2" sx={{ color: '#8e8e8e', mb: 2, whiteSpace: 'pre-wrap' }}>
+                      <Typography
+                        variant='body2'
+                        sx={{ color: 'text.secondary', mb: 2, whiteSpace: 'pre-wrap' }}
+                      >
                         {action.description}
                       </Typography>
                     )}
-                    <Stack direction="row" spacing={2}>
-                      <Button variant="contained" sx={{ bgcolor: '#a8c7fa', color: '#000', '&:hover': { bgcolor: '#8ab4f8' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleApproveInterrupt()}>
+                    <Stack direction='row' spacing={2}>
+                      <Button
+                        variant='contained'
+                        sx={{
+                          bgcolor: 'primary.main',
+                          color: 'primary.contrastText',
+                          '&:hover': { bgcolor: 'primary.dark' },
+                          borderRadius: '20px',
+                          textTransform: 'none',
+                          px: 3,
+                        }}
+                        onClick={() => handleApproveInterrupt()}
+                      >
                         Aprovar
                       </Button>
-                      <Button variant="outlined" sx={{ color: '#e3e3e3', borderColor: '#5f6368', '&:hover': { borderColor: '#e3e3e3', bgcolor: 'rgba(255,255,255,0.05)' }, borderRadius: '20px', textTransform: 'none', px: 3 }} onClick={() => handleRejectInterrupt("Usuário rejeitou.")}>
+                      <Button
+                        variant='outlined'
+                        sx={{
+                          color: 'text.primary',
+                          borderColor: 'text.secondary',
+                          '&:hover': { borderColor: 'text.primary', bgcolor: 'action.hover' },
+                          borderRadius: '20px',
+                          textTransform: 'none',
+                          px: 3,
+                        }}
+                        onClick={() => handleRejectInterrupt('Usuário rejeitou.')}
+                      >
                         Rejeitar
                       </Button>
                     </Stack>
@@ -278,14 +388,24 @@ export default function OnboardingChat() {
       </Box>
 
       {/* Input Section */}
-      <Box sx={{ width: '100%', maxWidth: '900px', p: 2, pb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: '900px',
+          p: 2,
+          pb: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
         <Paper
           elevation={0}
           sx={{
             width: '100%',
             maxWidth: '800px',
             minHeight: '60px',
-            bgcolor: '#1e1f20',
+            bgcolor: 'background.paper',
             borderRadius: '32px',
             display: 'flex',
             alignItems: 'flex-end',
@@ -293,8 +413,8 @@ export default function OnboardingChat() {
             py: 1.5,
             border: 'none',
             '&:focus-within': {
-              bgcolor: '#282a2c'
-            }
+              bgcolor: 'action.hover',
+            },
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, mr: 1, height: '100%' }}>
@@ -302,20 +422,20 @@ export default function OnboardingChat() {
               value={searchSource}
               onChange={(e) => setSearchSource(e.target.value as string)}
               disabled={isLoading}
-              variant="standard"
+              variant='standard'
               disableUnderline
               displayEmpty
               IconComponent={() => null} // Remove o ícone padrão da setinha
               renderValue={(value) => (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <TuneRounded sx={{ fontSize: '1.2rem', color: '#e3e3e3' }} />
-                  <Typography variant="body2" sx={{ color: '#e3e3e3', fontWeight: 500 }}>
+                <Stack direction='row' spacing={1} alignItems='center'>
+                  <TuneRounded sx={{ fontSize: '1.2rem', color: 'text.primary' }} />
+                  <Typography variant='body2' sx={{ color: 'text.primary', fontWeight: 500 }}>
                     {value === 'semantic_scholar' ? 'Ferramentas' : 'Ferramentas'}
                   </Typography>
                 </Stack>
               )}
               sx={{
-                bgcolor: '#333538',
+                bgcolor: 'action.hover',
                 borderRadius: '24px',
                 px: 2,
                 py: 0.75,
@@ -325,43 +445,43 @@ export default function OnboardingChat() {
                   paddingRight: '0 !important',
                 },
                 '&:hover': {
-                  bgcolor: '#3c3f43'
-                }
+                  bgcolor: 'action.selected',
+                },
               }}
               MenuProps={{
                 PaperProps: {
                   sx: {
-                    bgcolor: '#1e1f20',
-                    color: '#e3e3e3',
+                    bgcolor: 'background.paper',
+                    color: 'text.primary',
                     borderRadius: '16px',
                     mt: 1,
                     '& .MuiMenuItem-root': {
                       py: 1.5,
                       px: 2,
                       '&:hover': {
-                        bgcolor: 'rgba(255,255,255,0.08)'
+                        bgcolor: 'action.hover',
                       },
                       '&.Mui-selected': {
-                        bgcolor: 'rgba(255,255,255,0.12)',
+                        bgcolor: 'action.selected',
                         '&:hover': {
-                          bgcolor: 'rgba(255,255,255,0.16)'
-                        }
-                      }
-                    }
-                  }
-                }
+                          bgcolor: 'action.focus',
+                        },
+                      },
+                    },
+                  },
+                },
               }}
             >
-              <MenuItem value="semantic_scholar">Semantic Scholar</MenuItem>
-              <MenuItem value="openalex">OpenAlex Database</MenuItem>
+              <MenuItem value='semantic_scholar'>Semantic Scholar</MenuItem>
+              <MenuItem value='openalex'>OpenAlex Database</MenuItem>
             </Select>
           </Box>
           <TextField
             multiline
             maxRows={8}
             fullWidth
-            variant="standard"
-            placeholder="Pergunte ao Agente..."
+            variant='standard'
+            placeholder='Pergunte ao Agente...'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -371,9 +491,11 @@ export default function OnboardingChat() {
               }
             }}
             disabled={isLoading}
-            InputProps={{
-              disableUnderline: true,
-              sx: { color: '#e3e3e3', py: 0.5, fontSize: '1rem', lineHeight: 1.5 }
+            slotProps={{
+              input: {
+                disableUnderline: true,
+                sx: { color: 'text.primary', py: 0.5, fontSize: '1rem', lineHeight: 1.5 },
+              },
             }}
           />
           <IconButton
@@ -382,14 +504,14 @@ export default function OnboardingChat() {
             sx={{
               mb: 0.5,
               ml: 1,
-              bgcolor: input.trim() ? '#e3e3e3' : 'transparent',
-              color: input.trim() ? '#131314' : '#5f6368',
-              '&:hover': { bgcolor: input.trim() ? '#fff' : 'transparent' },
+              bgcolor: input.trim() ? 'text.primary' : 'transparent',
+              color: input.trim() ? 'background.default' : 'text.secondary',
+              '&:hover': { bgcolor: input.trim() ? 'primary.contrastText' : 'transparent' },
               transition: 'all 0.2s',
               '&.Mui-disabled': {
-                color: '#5f6368',
-                bgcolor: 'transparent'
-              }
+                color: 'text.secondary',
+                bgcolor: 'transparent',
+              },
             }}
           >
             <Send sx={{ fontSize: '1.2rem' }} />

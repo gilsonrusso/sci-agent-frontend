@@ -40,8 +40,10 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTheme } from '@mui/material';
 import { useNavigate } from 'react-router';
 import { useAppSelector } from '../../store/hooks';
+import ThemeToggle from '../../components/ThemeToggle';
 import {
   CartesianGrid,
   Line,
@@ -74,6 +76,7 @@ export default function DashboardPage() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
 
+  const theme = useTheme();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { sendNotification } = useNotifications();
@@ -145,17 +148,22 @@ export default function DashboardPage() {
 
   const navItems = [
     { text: 'Projects', icon: <Description />, path: '/dashboard', show: true },
-    { text: 'Board', icon: <Assignment />, path: '/management/board', show: isMentor || isCoordinator },
+    {
+      text: 'Board',
+      icon: <Assignment />,
+      path: '/management/board',
+      show: isMentor || isCoordinator,
+    },
     { text: 'Roadmap', icon: <Analytics />, path: '/management/roadmap', show: isCoordinator },
     { text: 'New Project AI', icon: <Science />, path: '/onboarding', show: isAuthor },
     { text: 'Account Settings', icon: <Settings />, path: '/settings', show: true },
-  ].filter(item => item.show);
+  ].filter((item) => item.show);
 
   const drawer = (
-    <Box sx={{ width: 260, height: '100%', backgroundColor: '#1A1F2E' }}>
+    <Box sx={{ width: 260, height: '100%', bgcolor: 'background.paper' }}>
       <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Science sx={{ color: '#10B981', fontSize: 40 }} />
-        <Typography variant='h5' sx={{ fontWeight: 700, color: '#10B981' }}>
+        <Science sx={{ color: 'primary.main', fontSize: 40 }} />
+        <Typography variant='h5' sx={{ fontWeight: 700, color: 'primary.main' }}>
           SciAgent OS
         </Typography>
       </Box>
@@ -170,12 +178,15 @@ export default function DashboardPage() {
               }}
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'rgba(57, 73, 171, 0.2)',
-                  borderRight: '3px solid #3949AB',
+                  bgcolor:
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(168, 199, 250, 0.16)'
+                      : 'rgba(66, 133, 244, 0.12)',
+                  borderRight: `3px solid ${theme.palette.primary.main}`,
                 },
               }}
             >
-              <ListItemIcon sx={{ color: activeNav === item.text ? '#3949AB' : 'inherit' }}>
+              <ListItemIcon sx={{ color: activeNav === item.text ? 'primary.main' : 'inherit' }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText primary={item.text} />
@@ -187,7 +198,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0F1419' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Sidebar - Desktop */}
       <Box
         sx={{
@@ -210,7 +221,7 @@ export default function DashboardPage() {
         <AppBar
           position='static'
           elevation={0}
-          sx={{ backgroundColor: '#1A1F2E', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+          sx={{ bgcolor: 'background.paper', borderBottom: `1px solid ${theme.palette.divider}` }}
         >
           <Toolbar>
             <Button
@@ -228,7 +239,10 @@ export default function DashboardPage() {
             <Button startIcon={<Notifications />} color='inherit'>
               Notifications
             </Button>
-            <Avatar sx={{ ml: 2, bgcolor: '#3949AB' }}>JS</Avatar>
+            <ThemeToggle />
+            <Avatar sx={{ ml: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+              {user?.full_name?.charAt(0) || 'U'}
+            </Avatar>
           </Toolbar>
         </AppBar>
 
@@ -250,9 +264,9 @@ export default function DashboardPage() {
               <IconButton
                 onClick={() => setCreateDialogOpen(true)}
                 sx={{
-                  backgroundColor: '#10B981',
-                  color: '#fff',
-                  '&:hover': { backgroundColor: '#059669' },
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': { bgcolor: 'primary.dark' },
                   width: 56,
                   height: 56,
                 }}
@@ -268,22 +282,28 @@ export default function DashboardPage() {
               <Grid size={{ xs: 12, lg: 8 }}>
                 <WriterHeatmap />
 
-                <Paper sx={{ p: 3, backgroundColor: '#1A1F2E', mb: 3 }}>
+                <Paper sx={{ p: 3, bgcolor: 'background.paper', mb: 3 }}>
                   <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
                     Writing Progress
                   </Typography>
                   <ResponsiveContainer width='100%' height={250}>
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray='3 3' stroke='rgba(255,255,255,0.1)' />
-                      <XAxis dataKey='date' stroke='#9CA3AF' />
-                      <YAxis stroke='#9CA3AF' />
+                      <CartesianGrid strokeDasharray='3 3' stroke={theme.palette.divider} />
+                      <XAxis dataKey='date' stroke={theme.palette.text.secondary} />
+                      <YAxis stroke={theme.palette.text.secondary} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#1A1F2E',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          backgroundColor: theme.palette.background.paper,
+                          border: `1px solid ${theme.palette.divider}`,
+                          color: theme.palette.text.primary,
                         }}
                       />
-                      <Line type='monotone' dataKey='words' stroke='#10B981' strokeWidth={3} />
+                      <Line
+                        type='monotone'
+                        dataKey='words'
+                        stroke={theme.palette.primary.main}
+                        strokeWidth={3}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </Paper>
@@ -306,9 +326,9 @@ export default function DashboardPage() {
                     <Grid size={{ xs: 12, sm: 6 }} key={project.id}>
                       <Card
                         sx={{
-                          backgroundColor: '#1A1F2E',
+                          bgcolor: 'background.paper',
                           '&:hover': {
-                            backgroundColor: '#212838',
+                            bgcolor: 'action.hover',
                             transform: 'translateY(-4px)',
                             transition: 'all 0.3s ease',
                           },
@@ -349,9 +369,12 @@ export default function DashboardPage() {
                                   sx={{
                                     height: 6,
                                     borderRadius: 3,
-                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                    bgcolor:
+                                      theme.palette.mode === 'dark'
+                                        ? 'rgba(255,255,255,0.1)'
+                                        : 'rgba(0,0,0,0.1)',
                                     '& .MuiLinearProgress-bar': {
-                                      backgroundColor: '#10B981',
+                                      bgcolor: 'primary.main',
                                     },
                                   }}
                                 />
@@ -390,7 +413,7 @@ export default function DashboardPage() {
 
             {/* Tasks Sidebar */}
             <Grid size={{ xs: 12, lg: 4 }}>
-              <Paper sx={{ p: 3, backgroundColor: '#1A1F2E' }}>
+              <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
                 <Typography variant='h6' sx={{ mb: 3, fontWeight: 600 }}>
                   Current Tasks (Project 1)
                 </Typography>

@@ -27,6 +27,7 @@ import {
   Toolbar,
   Typography,
   Autocomplete,
+  useTheme,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -34,6 +35,7 @@ import { useNavigate, useParams } from 'react-router';
 import { ProjectRole, projectsApi } from '../dashboard/projectsApi';
 
 export default function ProjectSettingsPage() {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { id: projectId } = useParams();
   const [activeTab, setActiveTab] = useState(0);
@@ -95,9 +97,9 @@ export default function ProjectSettingsPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0F1419' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Top AppBar */}
-      <AppBar position='static' elevation={0} sx={{ backgroundColor: '#1A1F2E' }}>
+      <AppBar position='static' elevation={0} sx={{ bgcolor: 'background.paper' }}>
         <Toolbar>
           <IconButton edge='start' color='inherit' onClick={() => navigate(`/dashboard`)}>
             <ArrowBack />
@@ -109,8 +111,9 @@ export default function ProjectSettingsPage() {
             variant='contained'
             startIcon={<Save />}
             sx={{
-              backgroundColor: '#10B981',
-              '&:hover': { backgroundColor: '#059669' },
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': { bgcolor: 'primary.dark' },
             }}
           >
             Save Changes
@@ -120,12 +123,12 @@ export default function ProjectSettingsPage() {
 
       {/* Content */}
       <Box sx={{ p: 4, maxWidth: 1200, mx: 'auto' }}>
-        <Paper sx={{ backgroundColor: '#1A1F2E' }}>
+        <Paper sx={{ bgcolor: 'background.paper' }}>
           <Tabs
             value={activeTab}
             onChange={(_, v) => setActiveTab(v)}
             sx={{
-              borderBottom: '1px solid rgba(255,255,255,0.1)',
+              borderBottom: `1px solid ${theme.palette.divider}`,
               px: 3,
             }}
           >
@@ -210,7 +213,7 @@ export default function ProjectSettingsPage() {
                   <Button
                     variant='contained'
                     startIcon={<PersonAdd />}
-                    sx={{ backgroundColor: '#3949AB' }}
+                    sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}
                     onClick={() => setIsInviteOpen(true)}
                   >
                     Invite Member
@@ -232,7 +235,9 @@ export default function ProjectSettingsPage() {
                         <TableRow key={member.user_id} hover>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Avatar sx={{ bgcolor: '#3949AB' }}>
+                              <Avatar
+                                sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}
+                              >
                                 {member.user_full_name?.charAt(0) || member.user_email.charAt(0)}
                               </Avatar>
                               <Typography variant='body2'>
@@ -321,7 +326,15 @@ export default function ProjectSettingsPage() {
                 </Dialog>
 
                 <Box
-                  sx={{ mt: 4, p: 3, backgroundColor: 'rgba(57, 73, 171, 0.1)', borderRadius: 2 }}
+                  sx={{
+                    mt: 4,
+                    p: 3,
+                    bgcolor:
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(168, 199, 250, 0.08)'
+                        : 'rgba(66, 133, 244, 0.08)',
+                    borderRadius: 2,
+                  }}
                 >
                   <Typography variant='subtitle2' sx={{ fontWeight: 600, mb: 1 }}>
                     Role Permissions
@@ -396,7 +409,7 @@ export default function ProjectSettingsPage() {
                   <Paper
                     sx={{
                       p: 2,
-                      backgroundColor: '#212838',
+                      bgcolor: 'action.hover',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -407,7 +420,8 @@ export default function ProjectSettingsPage() {
                         width: 24,
                         height: 24,
                         borderRadius: '50%',
-                        backgroundColor: '#10B981',
+                        bgcolor: 'success.main',
+                        color: 'success.contrastText',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -421,7 +435,7 @@ export default function ProjectSettingsPage() {
                   <Paper
                     sx={{
                       p: 2,
-                      backgroundColor: '#212838',
+                      bgcolor: 'action.hover',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -432,7 +446,8 @@ export default function ProjectSettingsPage() {
                         width: 24,
                         height: 24,
                         borderRadius: '50%',
-                        backgroundColor: '#10B981',
+                        bgcolor: 'success.main',
+                        color: 'success.contrastText',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -446,7 +461,7 @@ export default function ProjectSettingsPage() {
                   <Paper
                     sx={{
                       p: 2,
-                      backgroundColor: '#212838',
+                      bgcolor: 'action.hover',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -457,7 +472,7 @@ export default function ProjectSettingsPage() {
                         width: 24,
                         height: 24,
                         borderRadius: '50%',
-                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        bgcolor: 'action.disabledBackground',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -473,7 +488,7 @@ export default function ProjectSettingsPage() {
                   <Paper
                     sx={{
                       p: 2,
-                      backgroundColor: '#212838',
+                      bgcolor: 'action.hover',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 2,
@@ -484,7 +499,7 @@ export default function ProjectSettingsPage() {
                         width: 24,
                         height: 24,
                         borderRadius: '50%',
-                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        bgcolor: 'action.disabledBackground',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

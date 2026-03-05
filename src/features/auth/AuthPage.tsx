@@ -60,7 +60,9 @@ export default function AuthPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        background: 'linear-gradient(135deg, #0F1419 0%, #1A1F2E 50%, #283593 100%)',
+        bgcolor: 'background.default',
+        background: (theme) =>
+          `linear-gradient(135deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 50%, ${theme.palette.primary.main}20 100%)`,
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -95,35 +97,35 @@ export default function AuthPage() {
         <Science
           sx={{
             fontSize: 180,
-            color: '#10B981',
+            color: 'primary.main',
             mb: 4,
-            filter: 'drop-shadow(0 0 20px rgba(16, 185, 129, 0.4))',
+            filter: (theme) => `drop-shadow(0 0 20px ${theme.palette.primary.main}60)`,
           }}
         />
 
-        <Typography variant='h2' sx={{ fontWeight: 700, color: '#fff', mb: 2 }}>
+        <Typography variant='h2' sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>
           SciAgent OS
         </Typography>
         <Typography
           variant='h6'
-          sx={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', maxWidth: 500 }}
+          sx={{ color: 'text.secondary', textAlign: 'center', maxWidth: 500 }}
         >
           Scientific Writing & Collaboration Platform powered by AI Agents
         </Typography>
         <Box sx={{ mt: 6, display: 'flex', gap: 4, opacity: 0.6 }}>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant='h3' sx={{ fontWeight: 700, color: '#10B981' }}>
+            <Typography variant='h3' sx={{ fontWeight: 700, color: 'primary.main' }}>
               10K+
             </Typography>
-            <Typography variant='body2' sx={{ color: 'rgba(255,255,255,0.6)' }}>
+            <Typography variant='body2' sx={{ color: 'text.secondary' }}>
               Papers Published
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant='h3' sx={{ fontWeight: 700, color: '#10B981' }}>
+            <Typography variant='h3' sx={{ fontWeight: 700, color: 'primary.main' }}>
               500+
             </Typography>
-            <Typography variant='body2' sx={{ color: 'rgba(255,255,255,0.6)' }}>
+            <Typography variant='body2' sx={{ color: 'text.secondary' }}>
               Universities
             </Typography>
           </Box>
@@ -146,7 +148,7 @@ export default function AuthPage() {
           sx={{
             width: '100%',
             maxWidth: 480,
-            backgroundColor: 'rgba(26, 31, 46, 0.95)',
+            bgcolor: 'background.paper',
             backdropFilter: 'blur(10px)',
           }}
         >

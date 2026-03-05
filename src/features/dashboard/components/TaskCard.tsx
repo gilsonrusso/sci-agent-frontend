@@ -44,7 +44,7 @@ export default function TaskCard({
   };
 
   return (
-    <Card sx={{ mb: 2, backgroundColor: '#212838' }}>
+    <Card sx={{ mb: 2, bgcolor: 'background.paper' }}>
       <CardContent sx={{ pb: '16px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
           <Box>

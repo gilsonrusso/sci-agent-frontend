@@ -7,6 +7,7 @@ import {
   ListItemButton,
   Chip,
   Divider,
+  useTheme,
 } from '@mui/material';
 import { Close, History, Save, AutoFixHigh, Restore } from '@mui/icons-material';
 
@@ -86,6 +87,8 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({ onClose }: VersionHistoryProps) {
+  const theme = useTheme();
+
   const getTypeIcon = (type: VersionItem['type']) => {
     switch (type) {
       case 'auto':
@@ -113,7 +116,7 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
       sx={{
         width: 400,
         height: '100%',
-        backgroundColor: '#1A1F2E',
+        bgcolor: 'background.paper',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -122,7 +125,7 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
       <Box
         sx={{
           p: 2,
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          borderBottom: `1px solid ${theme.palette.divider}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -140,8 +143,8 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
       <Box
         sx={{
           p: 2,
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'success.light',
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
         <Typography variant='body2' color='text.secondary'>
@@ -197,7 +200,7 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
                             width: 8,
                             height: 8,
                             borderRadius: '50%',
-                            backgroundColor: '#10B981',
+                            bgcolor: 'success.main',
                           }}
                         />
                         <Typography variant='caption' color='text.secondary'>
@@ -210,7 +213,7 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
                             width: 8,
                             height: 8,
                             borderRadius: '50%',
-                            backgroundColor: '#EF4444',
+                            bgcolor: 'error.main',
                           }}
                         />
                         <Typography variant='caption' color='text.secondary'>
@@ -225,19 +228,19 @@ export function VersionHistory({ onClose }: VersionHistoryProps) {
                         sx={{
                           mt: 1,
                           p: 1,
-                          backgroundColor: '#212838',
+                          bgcolor: 'background.default',
                           borderRadius: 1,
                           fontSize: 11,
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        <Box sx={{ color: '#10B981', mb: 0.5 }}>
+                        <Box sx={{ color: 'success.main', mb: 0.5 }}>
                           + \\subsection{'{'} Experimental Setup {'}'}
                         </Box>
-                        <Box sx={{ color: '#10B981', mb: 0.5 }}>
+                        <Box sx={{ color: 'success.main', mb: 0.5 }}>
                           + Our experiments were conducted on...
                         </Box>
-                        <Box sx={{ color: '#EF4444', textDecoration: 'line-through' }}>
+                        <Box sx={{ color: 'error.main', textDecoration: 'line-through' }}>
                           - The methodology follows standard...
                         </Box>
                       </Box>

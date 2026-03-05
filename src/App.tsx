@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import theme from './theme/theme';
+import { CssBaseline } from '@mui/material';
+import { CustomThemeProvider } from './theme/ThemeContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { useAppDispatch } from './store/hooks';
 import { checkAuth } from './store/slices/authSlice';
@@ -13,10 +13,10 @@ function App() {
   }, [dispatch]);
 
   return (
-    <ThemeProvider theme={theme}>
+    <CustomThemeProvider>
       <CssBaseline />
       <AppRoutes />
-    </ThemeProvider>
+    </CustomThemeProvider>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   Paper,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -32,6 +33,7 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -107,14 +109,32 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#0D1117',
+        bgcolor: 'background.default',
       }}
     >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#161B22', borderBottom: '1px solid #30363D' }}>
-        <Typography variant='h6' sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#C9D1D9', fontSize: 16 }}>
-          <SmartToyIcon sx={{ color: '#D2A8FF' }} /> SciAgent Copilot
+      <Box
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          bgcolor: 'background.paper',
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        }}
+      >
+        <Typography
+          variant='h6'
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            color: 'text.primary',
+            fontSize: 16,
+          }}
+        >
+          <SmartToyIcon sx={{ color: 'secondary.main' }} /> SciAgent Copilot
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: '#8B949E' }}>
+        <IconButton onClick={onClose} sx={{ color: 'text.secondary' }}>
           <CloseIcon />
         </IconButton>
       </Box>
@@ -132,9 +152,9 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
               sx={{
                 p: 1.5,
                 maxWidth: '90%',
-                bgcolor: msg.role === 'user' ? '#1F6FEB' : '#161B22',
-                color: msg.role === 'user' ? '#FFFFFF' : '#C9D1D9',
-                border: msg.role === 'user' ? 'none' : '1px solid #30363D',
+                bgcolor: msg.role === 'user' ? 'primary.main' : 'background.paper',
+                color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                border: msg.role === 'user' ? 'none' : `1px solid ${theme.palette.divider}`,
                 borderRadius: 2,
               }}
             >
@@ -142,11 +162,11 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
               </Typography>
             </Paper>
-            <Typography variant='caption' sx={{ mt: 0.5, color: '#8B949E' }}>
+            <Typography variant='caption' sx={{ mt: 0.5, color: 'text.secondary' }}>
               {msg.role === 'user' ? (
                 <PersonIcon fontSize='small' />
               ) : (
-                <SmartToyIcon fontSize='small' sx={{ color: '#D2A8FF' }} />
+                <SmartToyIcon fontSize='small' sx={{ color: 'secondary.main' }} />
               )}
             </Typography>
           </ListItem>
@@ -159,7 +179,9 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
         <div ref={messagesEndRef} />
       </List>
 
-      <Box sx={{ p: 2, borderTop: '1px solid #30363D', backgroundColor: '#161B22' }}>
+      <Box
+        sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}`, bgcolor: 'background.paper' }}
+      >
         <TextField
           fullWidth
           size='small'
@@ -170,19 +192,19 @@ export default function AIChatSidebar({ onClose, projectId, getContext }: AIChat
           disabled={isLoading}
           sx={{
             '& .MuiOutlinedInput-root': {
-              color: '#C9D1D9',
-              backgroundColor: '#0D1117',
-              '& fieldset': { borderColor: '#30363D' },
-              '&:hover fieldset': { borderColor: '#8B949E' },
-              '&.Mui-focused fieldset': { borderColor: '#58A6FF' },
-            }
+              color: 'text.primary',
+              bgcolor: 'background.default',
+              '& fieldset': { borderColor: 'divider' },
+              '&:hover fieldset': { borderColor: 'text.secondary' },
+              '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+            },
           }}
           InputProps={{
             endAdornment: (
               <IconButton
                 onClick={handleSend}
                 disabled={isLoading || !input.trim()}
-                sx={{ color: '#58A6FF', '&.Mui-disabled': { color: '#30363D' } }}
+                sx={{ color: 'primary.main', '&.Mui-disabled': { color: 'action.disabled' } }}
               >
                 <SendIcon />
               </IconButton>

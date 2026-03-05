@@ -1,6 +1,6 @@
-import { Box, Typography, Button } from '@mui/material';
-import { useNavigate } from 'react-router';
 import { Home, Science } from '@mui/icons-material';
+import { Box, Button, Typography } from '@mui/material';
+import { useNavigate } from 'react-router';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
@@ -13,13 +13,16 @@ export default function NotFoundPage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#0F1419',
+        bgcolor: 'background.default',
         textAlign: 'center',
         px: 4,
       }}
     >
-      <Science sx={{ fontSize: 200, color: '#3949AB', mb: 4, opacity: 0.8 }} />
-      <Typography variant='h1' sx={{ fontSize: 120, fontWeight: 700, color: '#3949AB', mb: 2 }}>
+      <Science sx={{ fontSize: 200, color: 'primary.main', mb: 4, opacity: 0.8 }} />
+      <Typography
+        variant='h1'
+        sx={{ fontSize: 120, fontWeight: 700, color: 'primary.main', mb: 2 }}
+      >
         404
       </Typography>
       <Typography variant='h4' sx={{ mb: 2, fontWeight: 600 }}>
@@ -29,13 +32,14 @@ export default function NotFoundPage() {
         The page you're looking for doesn't exist or has been moved.
       </Typography>
       <Button
+        onClick={() => navigate('/dashboard')}
         variant='contained'
         size='large'
         startIcon={<Home />}
-        onClick={() => navigate('/dashboard')}
         sx={{
-          backgroundColor: '#10B981',
-          '&:hover': { backgroundColor: '#059669' },
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          '&:hover': { bgcolor: 'primary.dark' },
         }}
       >
         Go to Dashboard

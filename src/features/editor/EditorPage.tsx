@@ -13,7 +13,8 @@ import {
   Typography,
   Tooltip,
   Fade,
-  Drawer
+  Drawer,
+  useTheme,
 } from '@mui/material';
 import { CheckCircleOutline } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
@@ -45,13 +46,16 @@ import { useWorkflowStore } from '../management/store/workflowStore';
 export default function EditorPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const user = useAppSelector((state) => state.auth.user);
+  const theme = useTheme();
 
   // Workflow Store
   const { articles, requestApproval, currentUserRole } = useWorkflowStore();
-  const article = articles.find(a => a.id === projectId) || articles[0]; // Fallback for demo
+  const article = articles.find((a) => a.id === projectId) || articles[0]; // Fallback for demo
 
   // Permissions Logic
-  const isLockedForAuthor = currentUserRole === 'AUTHOR' && ['HUMAN_REVIEW', 'APPROVED', 'SUBMITTED', 'AI_REVIEW'].includes(article.macroStatus);
+  const isLockedForAuthor =
+    currentUserRole === 'AUTHOR' &&
+    ['HUMAN_REVIEW', 'APPROVED', 'SUBMITTED', 'AI_REVIEW'].includes(article.macroStatus);
 
   // Editor Ref
   const editorRef = useRef<HTMLDivElement>(null);
@@ -87,7 +91,7 @@ export default function EditorPage() {
       // Cmd+B or Ctrl+B specifically for Zen Mode
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        setIsZenMode(prev => !prev);
+        setIsZenMode((prev) => !prev);
       }
     };
 
@@ -251,10 +255,10 @@ export default function EditorPage() {
           color='default'
           sx={{
             borderBottom: 1,
-            borderColor: '#30363D',
+            borderColor: 'divider',
             boxShadow: 'none',
-            backgroundColor: '#161B22',
-            color: '#C9D1D9'
+            bgcolor: 'background.paper',
+            color: 'text.primary',
           }}
         >
           <Toolbar variant='dense'>
@@ -267,30 +271,51 @@ export default function EditorPage() {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant='h6' color='#F0F6FC' component='div' sx={{ flexGrow: 1, fontSize: 16 }}>
+            <Typography
+              variant='h6'
+              color='text.primary'
+              component='div'
+              sx={{ flexGrow: 1, fontSize: 16 }}
+            >
               {project.title}
             </Typography>
 
             {/* Daily Progress Ring */}
             <Tooltip title={`${dailyWords} / ${dailyGoal} words today`}>
-              <Box sx={{ position: 'relative', display: 'inline-flex', mr: 3, alignItems: 'center', gap: 1, cursor: 'pointer' }}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  mr: 3,
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                }}
+              >
                 <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                  <CircularProgress variant="determinate" value={100} size={28} sx={{ color: '#30363D' }} />
                   <CircularProgress
-                    variant="determinate"
+                    variant='determinate'
+                    value={100}
+                    size={28}
+                    sx={{ color: 'divider' }}
+                  />
+                  <CircularProgress
+                    variant='determinate'
                     value={progressPercent}
                     size={28}
                     sx={{
-                      color: progressPercent >= 100 ? '#238636' : '#58A6FF',
+                      color: progressPercent >= 100 ? 'success.main' : 'info.main',
                       position: 'absolute',
-                      left: 0
+                      left: 0,
                     }}
                   />
                 </Box>
                 {progressPercent >= 100 ? (
-                  <CheckCircleOutline sx={{ color: '#238636', fontSize: 18 }} />
+                  <CheckCircleOutline sx={{ color: 'success.main', fontSize: 18 }} />
                 ) : (
-                  <Typography variant="caption" sx={{ color: '#8B949E', fontWeight: 600 }}>{Math.round(progressPercent)}%</Typography>
+                  <Typography variant='caption' sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    {Math.round(progressPercent)}%
+                  </Typography>
                 )}
               </Box>
             </Tooltip>
@@ -304,10 +329,10 @@ export default function EditorPage() {
               onClick={() => setIsChatOpen(!isChatOpen)}
               sx={{
                 mr: 2,
-                color: '#D2A8FF',
-                borderColor: '#D2A8FF50',
+                color: 'secondary.main',
+                borderColor: theme.palette.mode === 'dark' ? 'secondary.dark' : 'secondary.light',
                 textTransform: 'none',
-                '&:hover': { borderColor: '#D2A8FF' }
+                '&:hover': { borderColor: 'secondary.main' },
               }}
             >
               Copilot
@@ -315,16 +340,18 @@ export default function EditorPage() {
 
             <Button
               variant='contained'
-              startIcon={isCompiling ? <CircularProgress size={20} color='inherit' /> : <PlayIcon />}
+              startIcon={
+                isCompiling ? <CircularProgress size={20} color='inherit' /> : <PlayIcon />
+              }
               onClick={handleCompile}
               disabled={isCompiling}
               sx={{
-                backgroundColor: '#238636',
-                color: '#ffffff',
+                bgcolor: 'success.main',
+                color: 'success.contrastText',
                 textTransform: 'none',
                 fontWeight: 600,
                 boxShadow: 'none',
-                '&:hover': { backgroundColor: '#2EA043', boxShadow: 'none' }
+                '&:hover': { bgcolor: 'success.dark', boxShadow: 'none' },
               }}
             >
               {isCompiling ? 'Compiling...' : 'Recompile'}
@@ -334,11 +361,29 @@ export default function EditorPage() {
       </Fade>
 
       {/* Main Content: Split Pane */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden', backgroundColor: '#0D1117' }}>
+      <Box sx={{ flexGrow: 1, overflow: 'hidden', bgcolor: 'background.default' }}>
         {/* Subtle hint for Zen Mode early on */}
         {isZenMode && (
-          <Box sx={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, pointerEvents: 'none' }}>
-            <Typography sx={{ color: '#8B949E', fontSize: 12, backgroundColor: '#161B2290', px: 2, py: 0.5, borderRadius: 5 }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              pointerEvents: 'none',
+            }}
+          >
+            <Typography
+              sx={{
+                color: 'text.secondary',
+                fontSize: 12,
+                bgcolor: 'background.paper',
+                px: 2,
+                py: 0.5,
+                borderRadius: 5,
+              }}
+            >
               Zen Mode Active (Press Cmd+B to exit)
             </Typography>
           </Box>
@@ -366,14 +411,14 @@ export default function EditorPage() {
             </Box>
           </Panel>
 
-          <Separator style={{ border: '1px solid #ccc' }} />
+          <Separator style={{ border: `1px solid ${theme.palette.divider}` }} />
 
           {/* Panel 2: PDF */}
           <Panel defaultSize={'50%'} minSize={'33%'}>
             <Box
               sx={{
                 height: '100%',
-                bgcolor: '#525659',
+                bgcolor: 'background.default',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -403,7 +448,7 @@ export default function EditorPage() {
           {/* Panel 3: Workflow Checklist (Hidden in Zen Mode) */}
           {!isZenMode && (
             <>
-              <Separator style={{ border: '1px solid #30363D' }} />
+              <Separator style={{ border: `1px solid ${theme.palette.divider}` }} />
               <Panel defaultSize={20} minSize={15} maxSize={30}>
                 <WorkflowSidebar
                   article={article}
@@ -415,25 +460,24 @@ export default function EditorPage() {
               </Panel>
             </>
           )}
-
         </Group>
       </Box>
 
       {/* RAG/AI Drawer (Floating Top Layer) */}
       <Drawer
-        anchor="right"
+        anchor='right'
         open={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        variant="temporary"
+        variant='temporary'
         PaperProps={{
           sx: {
             width: { xs: '100vw', sm: 400, md: 500 },
-            backgroundColor: '#0D1117',
-            borderLeft: '1px solid #30363D'
-          }
+            bgcolor: 'background.default',
+            borderLeft: `1px solid ${theme.palette.divider}`,
+          },
         }}
         slotProps={{
-          backdrop: { sx: { backgroundColor: 'transparent' } }
+          backdrop: { sx: { backgroundColor: 'transparent' } },
         }}
       >
         <AIChatSidebar

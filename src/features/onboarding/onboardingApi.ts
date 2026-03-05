@@ -4,7 +4,7 @@ export const sendMessage = async (
   conversationId: string,
   message: string,
   searchSource: string = 'semantic_scholar',
-  extraContext: any = {}
+  extraContext: any = {},
 ) => {
   const token = localStorage.getItem('token');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -13,16 +13,16 @@ export const sendMessage = async (
     conversation_id: conversationId,
     message: message,
     search_source: searchSource,
-    project_context: extraContext
+    project_context: extraContext,
   };
 
   const response = await fetch(`${apiUrl}/api/v1/onboarding/chat/invoke`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -36,7 +36,7 @@ export const resumeMessage = async (
   conversationId: string,
   interruptId: string,
   decision: any,
-  searchSource: string = 'semantic_scholar'
+  searchSource: string = 'semantic_scholar',
 ) => {
   const token = localStorage.getItem('token');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -52,9 +52,9 @@ export const resumeMessage = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
