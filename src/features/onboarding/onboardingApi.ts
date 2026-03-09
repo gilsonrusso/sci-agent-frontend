@@ -6,7 +6,7 @@ export const sendMessage = async (
   searchSource: string = 'semantic_scholar',
   extraContext: any = {},
 ) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const body = {
@@ -38,7 +38,7 @@ export const resumeMessage = async (
   decision: any,
   searchSource: string = 'semantic_scholar',
 ) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const body = {
@@ -131,5 +131,19 @@ export const onboardingApi = {
   }): Promise<any> => {
     const response = await axiosClient.post('/onboarding/create-project', data);
     return response.data;
+  },
+
+  getSessions: async (): Promise<any[]> => {
+    const response = await axiosClient.get('/onboarding/chat/sessions');
+    return response.data;
+  },
+
+  getSessionHistory: async (conversationId: string): Promise<any> => {
+    const response = await axiosClient.get(`/onboarding/chat/sessions/${conversationId}/history`);
+    return response.data;
+  },
+
+  deleteSession: async (conversationId: string): Promise<void> => {
+    await axiosClient.delete(`/onboarding/chat/sessions/${conversationId}`);
   },
 };

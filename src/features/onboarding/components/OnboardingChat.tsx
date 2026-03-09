@@ -12,33 +12,161 @@ import {
   Select,
   MenuItem,
   Fade,
+  Checkbox,
+  FormGroup,
+  FormControlLabel,
+  Link,
 } from '@mui/material';
 import { TuneRounded } from '@mui/icons-material';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
-import { sendMessage, resumeMessage, type InterruptActionRequest } from '../onboardingApi';
+import { sendMessage, resumeMessage, type InterruptActionRequest, onboardingApi } from '../onboardingApi';
+
+const ArticleSelector = ({
+  articles,
+  onConfirm,
+  disabled,
+}: {
+  articles: any[];
+  onConfirm: (selected: any[]) => void;
+  disabled?: boolean;
+}) => {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const handleToggle = (idx: number) => {
+    const newSelected = new Set(selected);
+    if (newSelected.has(idx)) {
+      newSelected.delete(idx);
+    } else {
+      newSelected.add(idx);
+    }
+    setSelected(newSelected);
+  };
+
+  return (
+    <Box
+      sx={{
+        mt: 2,
+        p: 2,
+        bgcolor: 'background.default',
+        borderRadius: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        width: '100%',
+      }}
+    >
+      <Typography variant='subtitle2' sx={{ mb: 1, color: 'text.secondary', fontWeight: 600 }}>
+        Selecione os artigos desejados:
+      </Typography>
+      <FormGroup>
+        {articles.map((art, idx) => (
+          <FormControlLabel
+            key={idx}
+            control={
+              <Checkbox
+                checked={selected.has(idx)}
+                onChange={() => handleToggle(idx)}
+                disabled={disabled}
+                color='primary'
+              />
+            }
+            label={
+              <Box sx={{ my: 0.5 }}>
+                <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                  {art.title}
+                </Typography>
+                <Typography variant='caption' sx={{ color: 'text.secondary', display: 'block' }}>
+                  {art.authors?.join(', ')} {art.year ? `(${art.year})` : ''} — Citations: {art.citation_count || 0}
+                </Typography>
+                {art.url && (
+                  <Link href={art.url} target='_blank' rel='noopener' variant='caption'>
+                    Ver Artigo
+                  </Link>
+                )}
+              </Box>
+            }
+            sx={{ alignItems: 'flex-start' }}
+          />
+        ))}
+      </FormGroup>
+      {!disabled && (
+        <Button
+          variant='contained'
+          size='small'
+          sx={{ mt: 2, borderRadius: '20px', textTransform: 'none' }}
+          disabled={selected.size === 0}
+          onClick={() => onConfirm(articles.filter((_, idx) => selected.has(idx)))}
+        >
+          Confirmar Seleção ({selected.size})
+        </Button>
+      )}
+    </Box>
+  );
+};
 
 export default function OnboardingChat() {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const conversationId = useState(() => {
-    const saved = sessionStorage.getItem('sciagent_onboarding_id');
-    if (saved) return saved;
-    const newId = uuidv4();
-    sessionStorage.setItem('sciagent_onboarding_id', newId);
-    return newId;
-  })[0];
+  const { conversationId: urlConversationId } = useParams();
+
+  // If there's no URL param, we generate one UUID on mount.
+  // We use a ref so it doesn't change on re-renders before navigation completes.
+  const newChatIdRef = useRef(uuidv4());
+
+  const conversationId = urlConversationId || newChatIdRef.current;
 
   const [localMessages, setLocalMessages] = useState<any[]>([]);
   const [pendingInterruptsList, setPendingInterruptsList] = useState<any[]>([]);
   const [searchSource, setSearchSource] = useState('semantic_scholar');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializingRoute, setIsInitializingRoute] = useState(true);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    // 1. Initial URL tracking logic: Redirect to a new ID if none is provided in the URL
+    if (!urlConversationId) {
+      navigate(`/onboarding/c/${conversationId}`, { replace: true });
+    }
+  }, [urlConversationId, conversationId, navigate]);
+
+  useEffect(() => {
+    // 2. Fetch History Logic
+    const fetchHistory = async () => {
+      if (!urlConversationId) return;
+      setIsLoading(true);
+      try {
+        const data = await onboardingApi.getSessionHistory(urlConversationId);
+        if (data && data.messages) {
+          setLocalMessages(data.messages);
+        }
+        if (data && data.active_interrupt) {
+          setPendingInterruptsList([{
+            id: data.active_interrupt.id,
+            value: data.active_interrupt.interrupts
+          }]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch chat history", err);
+      } finally {
+        setIsLoading(false);
+        setIsInitializingRoute(false);
+      }
+    };
+
+    // Only fetch if history is totally empty to avoid overriding local optimistic updates immediately
+    if (localMessages.length === 0) {
+      fetchHistory();
+    } else {
+      setIsInitializingRoute(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlConversationId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -57,7 +185,10 @@ export default function OnboardingChat() {
       const data = await sendMessage(conversationId, userText, searchSource);
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      } else {
+      }
+
+      // Sempre adicionar a mensagem se houver conteúdo, mesmo em interrupções
+      if (data.text || data.structured_data) {
         setLocalMessages((prev) => [
           ...prev,
           {
@@ -65,6 +196,7 @@ export default function OnboardingChat() {
             type: 'ai',
             agent_name: data.agent_name,
             content: data.text,
+            structured_data: data.structured_data,
           },
         ]);
       }
@@ -77,6 +209,50 @@ export default function OnboardingChat() {
           type: 'ai',
           agent_name: 'system',
           content: 'Erro ao conectar ao servidor.',
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmArticles = async (selectedArticles: any[]) => {
+    if (isLoading || selectedArticles.length === 0) return;
+
+    // Build a natural language message for the AI
+    const titles = selectedArticles.map(a => `"${a.title}"`).join(', ');
+    const userText = `Eu selecionei os seguintes artigos para aprofundar minha pesquisa: ${titles}.`;
+
+    setLocalMessages((prev) => [...prev, { id: Date.now(), type: 'human', content: userText }]);
+    setIsLoading(true);
+
+    try {
+      const data = await sendMessage(conversationId, userText, searchSource);
+      if (data.type === 'interrupt') {
+        setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
+      }
+
+      if (data.text || data.structured_data) {
+        setLocalMessages((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            type: 'ai',
+            agent_name: data.agent_name,
+            content: data.text,
+            structured_data: data.structured_data,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
+      setLocalMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: 'ai',
+          agent_name: 'system',
+          content: 'Erro ao enviar seleção.',
         },
       ]);
     } finally {
@@ -108,7 +284,9 @@ export default function OnboardingChat() {
       );
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      } else {
+      }
+
+      if (data.text || data.structured_data) {
         setLocalMessages((prev) => [
           ...prev,
           {
@@ -116,6 +294,7 @@ export default function OnboardingChat() {
             type: 'ai',
             agent_name: data.agent_name,
             content: data.text,
+            structured_data: data.structured_data,
           },
         ]);
       }
@@ -143,7 +322,9 @@ export default function OnboardingChat() {
       );
       if (data.type === 'interrupt') {
         setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      } else {
+      }
+
+      if (data.text || data.structured_data) {
         setLocalMessages((prev) => [
           ...prev,
           {
@@ -151,6 +332,7 @@ export default function OnboardingChat() {
             type: 'ai',
             agent_name: data.agent_name,
             content: data.text,
+            structured_data: data.structured_data,
           },
         ]);
       }
@@ -202,7 +384,7 @@ export default function OnboardingChat() {
             Voltar ao Dashboard
           </Button>
         </Box>
-        {localMessages.length === 0 && (
+        {localMessages.length === 0 && !isInitializingRoute && (
           <Fade in={true} timeout={1000}>
             <Box
               sx={{
@@ -277,6 +459,48 @@ export default function OnboardingChat() {
                       <Typography variant='body1' sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                         {msg.content}
                       </Typography>
+                      {msg.structured_data?.suggested_articles &&
+                        Array.isArray(msg.structured_data.suggested_articles) &&
+                        msg.structured_data.suggested_articles.length > 0 && (
+                          <ArticleSelector
+                            articles={msg.structured_data.suggested_articles}
+                            onConfirm={handleConfirmArticles}
+                            disabled={isLoading || idx !== localMessages.length - 1}
+                          />
+                        )}
+
+                      {msg.structured_data?.roadmap && (
+                        <Box
+                          sx={{
+                            mt: 2,
+                            p: 2,
+                            bgcolor: 'background.paper',
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: 'primary.main',
+                            width: '100%',
+                          }}
+                        >
+                          <Typography variant='subtitle1' sx={{ color: 'primary.main', fontWeight: 600, mb: 1 }}>
+                            Proposta de Projeto: {msg.structured_data.project_title}
+                          </Typography>
+                          {msg.structured_data.abstract && (
+                            <Typography variant='body2' sx={{ mb: 2, color: 'text.secondary', fontStyle: 'italic' }}>
+                              {msg.structured_data.abstract}
+                            </Typography>
+                          )}
+                          <Typography variant='subtitle2' sx={{ mb: 1 }}>Roadmap Inicial:</Typography>
+                          <List dense>
+                            {msg.structured_data.roadmap.map((t: any, i: number) => (
+                              <ListItem key={i} sx={{ px: 0 }}>
+                                <Typography variant='body2'>
+                                  <strong>Etapa {i + 1}: {t.title}</strong> — {t.description} ({t.due_in_days} dias)
+                                </Typography>
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Box>
+                      )}
                     </Box>
                   </Stack>
                 )}
@@ -316,7 +540,7 @@ export default function OnboardingChat() {
             </ListItem>
           )}
 
-          {isPendingInterrupt && (
+          {isPendingInterrupt && !isLoading && (
             <ListItem sx={{ justifyContent: 'center', px: 0, mt: 2 }}>
               <Box
                 sx={{
@@ -358,7 +582,10 @@ export default function OnboardingChat() {
                           textTransform: 'none',
                           px: 3,
                         }}
-                        onClick={() => handleApproveInterrupt()}
+                        onClick={() => {
+                          console.log('Approve button clicked');
+                          handleApproveInterrupt();
+                        }}
                       >
                         Aprovar
                       </Button>

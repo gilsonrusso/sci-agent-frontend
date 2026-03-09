@@ -1,5 +1,6 @@
 import { Add, MoreHoriz } from '@mui/icons-material';
 import { Box, Chip, IconButton, Typography } from '@mui/material';
+import { Droppable } from '@hello-pangea/dnd';
 import type { Article, MacroStatus } from '../types/workflow';
 import BoardCard from './BoardCard';
 
@@ -68,27 +69,38 @@ export default function BoardColumn({ stage, articles }: BoardColumnProps) {
       </Box>
 
       {/* Cards Area */}
-      <Box
-        sx={{
-          p: 1,
-          pt: 0,
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: 'action.disabledBackground',
-            borderRadius: '4px',
-          },
-        }}
-      >
-        {articles.map((article) => (
-          <BoardCard key={article.id} article={article} />
-        ))}
-      </Box>
+      <Droppable droppableId={stage.id}>
+        {(provided, snapshot) => (
+          <Box
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            sx={{
+              p: 1,
+              pt: 0,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'transparent',
+              flexGrow: 1,
+              transition: 'background-color 0.2s ease',
+              minHeight: 100,
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: 'action.disabledBackground',
+                borderRadius: '4px',
+              },
+            }}
+          >
+            {articles.map((article, index) => (
+              <BoardCard key={article.id} article={article} index={index} />
+            ))}
+            {provided.placeholder}
+          </Box>
+        )}
+      </Droppable>
     </Box>
   );
 }

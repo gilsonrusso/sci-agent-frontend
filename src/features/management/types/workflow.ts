@@ -23,11 +23,22 @@ export interface SectionStatus {
   wordCount: number;
 }
 
+export interface Task {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'waiting_approval' | 'done';
+  assignedTo?: string;
+  dueDate?: string;
+}
+
 export interface Article {
   id: string;
   title: string;
   macroStatus: MacroStatus;
   subSections: SectionStatus[];
+  tasks: Task[];
   deadline: string; // ISO Date
   createdAt: string;
   updatedAt: string;

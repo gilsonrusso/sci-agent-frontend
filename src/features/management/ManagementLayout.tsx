@@ -4,12 +4,23 @@ import { Science, ArrowBack, Settings, Search, FilterList } from '@mui/icons-mat
 import { useWorkflowStore } from './store/workflowStore';
 import ApprovalDrawer from './components/ApprovalDrawer';
 import ThemeToggle from '../../components/ThemeToggle';
+import { useEffect } from 'react';
 
 export default function ManagementLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUserRole } = useWorkflowStore();
+  const { currentUserRole, fetchBoard, connectWebSocket, disconnectWebSocket } = useWorkflowStore();
   const theme = useTheme();
+
+  useEffect(() => {
+    fetchBoard();
+    const token = localStorage.getItem('token') || '';
+    connectWebSocket(token);
+
+    return () => {
+      disconnectWebSocket();
+    };
+  }, [fetchBoard, connectWebSocket, disconnectWebSocket]);
 
   const getTitle = () => {
     switch (currentUserRole) {
@@ -146,6 +157,23 @@ export default function ManagementLayout() {
             }}
           >
             Roadmap
+          </Button>
+          <Button
+            onClick={() => navigate('/management/inbox')}
+            sx={{
+              color: location.pathname.includes('inbox') ? 'text.primary' : 'text.secondary',
+              textTransform: 'none',
+              fontWeight: location.pathname.includes('inbox') ? 600 : 400,
+              minWidth: 'auto',
+              borderBottom: location.pathname.includes('inbox')
+                ? `2px solid ${theme.palette.primary.main}`
+                : '2px solid transparent',
+              borderRadius: 0,
+              px: 0,
+              '&:hover': { backgroundColor: 'transparent', color: 'text.primary' },
+            }}
+          >
+            Inbox
           </Button>
         </Box>
       </Box>

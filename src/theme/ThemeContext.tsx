@@ -9,7 +9,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType>({
   mode: 'light',
-  toggleColorMode: () => {},
+  toggleColorMode: () => { },
 });
 
 export const useThemeContext = () => useContext(ThemeContext);
@@ -38,7 +38,7 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   return (
     <ThemeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider noSsr theme={theme}>{children}</ThemeProvider>
     </ThemeContext.Provider>
   );
 };

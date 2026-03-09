@@ -61,8 +61,7 @@ export default function AuthPage() {
         minHeight: '100vh',
         display: 'flex',
         bgcolor: 'background.default',
-        background: (theme) =>
-          `linear-gradient(135deg, ${theme.palette.background.default} 0%, ${theme.palette.background.paper} 50%, ${theme.palette.primary.main}20 100%)`,
+        background: () => `linear-gradient(135deg, #0F1419 0%, #1A1F2E 50%, #283593 100%)`,
         position: 'relative',
         overflow: 'hidden',
       }}

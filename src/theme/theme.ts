@@ -21,6 +21,10 @@ const components: ThemeOptions['components'] = {
       '*::-webkit-scrollbar-thumb:hover': {
         backgroundColor: theme.palette.mode === 'dark' ? '#9AA0A6' : '#BDC1C6',
       },
+      '::selection': {
+        backgroundColor: theme.palette.primary.light + '40',
+        color: theme.palette.mode === 'dark' ? '#fff' : '#000',
+      },
     }),
   },
   MuiButton: {

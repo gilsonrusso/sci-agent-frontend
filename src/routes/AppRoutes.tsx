@@ -3,11 +3,12 @@ import AuthPage from '../features/auth/AuthPage';
 import DashboardPage from '../features/dashboard/DashboardPage';
 import EditorPage from '../features/editor/EditorPage';
 import ProjectSettingsPage from '../features/settings/ProjectSettingsPage';
-import OnboardingChat from '../features/onboarding/components/OnboardingChat';
+import OnboardingLayout from '../features/onboarding/OnboardingLayout';
 import NotFoundPage from '../features/misc/NotFoundPage';
 import ManagementLayout from '../features/management/ManagementLayout';
 import MentorBoard from '../features/management/components/MentorBoard';
 import CoordinatorRoadmap from '../features/management/components/CoordinatorRoadmap';
+import ApprovalInbox from '../features/management/components/ApprovalInbox';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRoutes = () => (
@@ -20,7 +21,8 @@ export const AppRoutes = () => (
       <Route path='/dashboard' element={<DashboardPage />} />
       <Route path='/editor/:id' element={<EditorPage />} />
       <Route path='/settings/:id' element={<ProjectSettingsPage />} />
-      <Route path='/onboarding' element={<OnboardingChat />} />
+      <Route path='/onboarding' element={<OnboardingLayout />} />
+      <Route path='/onboarding/c/:conversationId' element={<OnboardingLayout />} />
 
       {/* Management / Workflow Engine Routes */}
       <Route path='/management' element={<ManagementLayout />}>
@@ -28,6 +30,7 @@ export const AppRoutes = () => (
         <Route index element={<MentorBoard />} />
         <Route path='board' element={<MentorBoard />} />
         <Route path='roadmap' element={<CoordinatorRoadmap />} />
+        <Route path='inbox' element={<ApprovalInbox />} />
       </Route>
     </Route>
 

@@ -49,13 +49,18 @@ export default function EditorPage() {
   const theme = useTheme();
 
   // Workflow Store
-  const { articles, requestApproval, currentUserRole } = useWorkflowStore();
-  const article = articles.find((a) => a.id === projectId) || articles[0]; // Fallback for demo
+  const { articles, requestApproval, currentUserRole, fetchBoard, connectWebSocket, disconnectWebSocket } = useWorkflowStore();
+  const article = articles.find((a) => a.id === projectId);
 
   // Permissions Logic
-  const isLockedForAuthor =
+  const isLockedForAuthor = !!(
     currentUserRole === 'AUTHOR' &&
-    ['HUMAN_REVIEW', 'APPROVED', 'SUBMITTED', 'AI_REVIEW'].includes(article.macroStatus);
+    article &&
+    ['HUMAN_REVIEW', 'APPROVED', 'SUBMITTED', 'AI_REVIEW'].includes(article.macroStatus)
+  );
+
+  // Auto-compile on load (OPTIONAL: Maybe remove this?)
+  const hasCompiledRef = useRef(false);
 
   // Editor Ref
   const editorRef = useRef<HTMLDivElement>(null);
@@ -85,21 +90,6 @@ export default function EditorPage() {
     enabled: !!projectId,
   });
 
-  // Global Keyboard Shortcuts (Zen Mode)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+B or Ctrl+B specifically for Zen Mode
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        setIsZenMode((prev) => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Handle Compile
   const handleCompile = async () => {
     if (!projectId) return;
     setIsCompiling(true);
@@ -122,9 +112,27 @@ export default function EditorPage() {
     }
   };
 
-  console.log('Component Rendered');
-  console.log('projectId:', projectId);
-  console.log('user:', user);
+  // Global Keyboard Shortcuts (Zen Mode)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+B or Ctrl+B specifically for Zen Mode
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setIsZenMode((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Fetch Board on Mount
+  useEffect(() => {
+    fetchBoard();
+    const token = localStorage.getItem('token') || '';
+    connectWebSocket(token);
+    return () => disconnectWebSocket();
+  }, [fetchBoard, connectWebSocket, disconnectWebSocket]);
 
   // 1. Initialize Yjs Provider & Data Layer
   useEffect(() => {
@@ -217,9 +225,6 @@ export default function EditorPage() {
       viewRef.current = null;
     };
   }, [provider]);
-
-  // Auto-compile on load (OPTIONAL: Maybe remove this?)
-  const hasCompiledRef = useRef(false);
 
   useEffect(() => {
     if (hasCompiledRef.current) return;
@@ -404,8 +409,11 @@ export default function EditorPage() {
                 sx={{
                   flexGrow: 1,
                   overflow: 'auto',
-                  '& .cm-editor': { height: '100%' },
+                  '& .cm-editor': { height: '100%', backgroundColor: theme.palette.background.default, color: theme.palette.text.primary },
                   '& .cm-scroller': { overflow: 'auto' },
+                  '& .cm-gutters': { backgroundColor: theme.palette.background.default, color: theme.palette.text.primary },
+                  '& .cm-active-line': { backgroundColor: theme.palette.action.hover },
+                  '& .cm-selectionBackground': { backgroundColor: theme.palette.action.selected },
                 }}
               />
             </Box>
@@ -449,14 +457,21 @@ export default function EditorPage() {
           {!isZenMode && (
             <>
               <Separator style={{ border: `1px solid ${theme.palette.divider}` }} />
-              <Panel defaultSize={20} minSize={15} maxSize={30}>
-                <WorkflowSidebar
-                  article={article}
-                  onRequestReview={() => {
-                    requestApproval(article.id, 'HUMAN_REVIEW');
-                    alert('Artigo enviado para revisão do Mentor/Coordenador com sucesso!');
-                  }}
-                />
+              <Panel defaultSize={20} minSize={200} maxSize={400}>
+                {article ? (
+                  <WorkflowSidebar
+                    article={article!}
+                    onRequestReview={() => {
+                      requestApproval(article!.id, 'HUMAN_REVIEW');
+                      alert('Artigo enviado para revisão do Mentor/Coordenador com sucesso!');
+                    }}
+                  />
+                ) : (
+                  <Box sx={{ p: 2, color: 'text.secondary', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CircularProgress size={24} sx={{ mr: 2 }} />
+                    Loading workflow...
+                  </Box>
+                )}
               </Panel>
             </>
           )}
@@ -469,15 +484,16 @@ export default function EditorPage() {
         open={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         variant='temporary'
-        PaperProps={{
-          sx: {
-            width: { xs: '100vw', sm: 400, md: 500 },
-            bgcolor: 'background.default',
-            borderLeft: `1px solid ${theme.palette.divider}`,
-          },
-        }}
         slotProps={{
           backdrop: { sx: { backgroundColor: 'transparent' } },
+          paper: {
+            sx: {
+              width: { xs: '100vw', sm: 400, md: 500 },
+              bgcolor: 'background.default',
+              borderLeft: `1px solid ${theme.palette.divider}`,
+            },
+
+          }
         }}
       >
         <AIChatSidebar

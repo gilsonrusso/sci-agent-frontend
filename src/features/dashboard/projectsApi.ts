@@ -166,9 +166,7 @@ export const projectsApi = {
 
   // Task Management
   getTasks: async (projectId: string): Promise<ProjectTask[]> => {
-    const response = await axiosClient.get<ProjectTask[]>('/tasks', {
-      params: { project_id: projectId },
-    });
+    const response = await axiosClient.get<ProjectTask[]>(`/tasks/project/${projectId}`);
     return response.data;
   },
 
@@ -178,7 +176,7 @@ export const projectsApi = {
   },
 
   updateTask: async (id: string, data: ProjectTaskUpdate): Promise<ProjectTask> => {
-    const response = await axiosClient.put<ProjectTask>(`/tasks/${id}`, data);
+    const response = await axiosClient.patch<ProjectTask>(`/tasks/${id}`, data);
     return response.data;
   },
 
