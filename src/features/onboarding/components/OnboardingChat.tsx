@@ -12,10 +12,6 @@ import {
   Select,
   MenuItem,
   Fade,
-  Checkbox,
-  FormGroup,
-  FormControlLabel,
-  Link,
 } from '@mui/material';
 import { TuneRounded } from '@mui/icons-material';
 import { useEffect, useRef, useState } from 'react';
@@ -23,87 +19,6 @@ import { useNavigate, useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 import { sendMessage, resumeMessage, type InterruptActionRequest, onboardingApi } from '../onboardingApi';
 
-const ArticleSelector = ({
-  articles,
-  onConfirm,
-  disabled,
-}: {
-  articles: any[];
-  onConfirm: (selected: any[]) => void;
-  disabled?: boolean;
-}) => {
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-
-  const handleToggle = (idx: number) => {
-    const newSelected = new Set(selected);
-    if (newSelected.has(idx)) {
-      newSelected.delete(idx);
-    } else {
-      newSelected.add(idx);
-    }
-    setSelected(newSelected);
-  };
-
-  return (
-    <Box
-      sx={{
-        mt: 2,
-        p: 2,
-        bgcolor: 'background.default',
-        borderRadius: 3,
-        border: '1px solid',
-        borderColor: 'divider',
-        width: '100%',
-      }}
-    >
-      <Typography variant='subtitle2' sx={{ mb: 1, color: 'text.secondary', fontWeight: 600 }}>
-        Selecione os artigos desejados:
-      </Typography>
-      <FormGroup>
-        {articles.map((art, idx) => (
-          <FormControlLabel
-            key={idx}
-            control={
-              <Checkbox
-                checked={selected.has(idx)}
-                onChange={() => handleToggle(idx)}
-                disabled={disabled}
-                color='primary'
-              />
-            }
-            label={
-              <Box sx={{ my: 0.5 }}>
-                <Typography variant='body2' sx={{ fontWeight: 600 }}>
-                  {art.title}
-                </Typography>
-                <Typography variant='caption' sx={{ color: 'text.secondary', display: 'block' }}>
-                  {art.authors?.join(', ')} {art.year ? `(${art.year})` : ''} — Citations: {art.citation_count || 0}
-                </Typography>
-                {art.url && (
-                  <Link href={art.url} target='_blank' rel='noopener' variant='caption'>
-                    Ver Artigo
-                  </Link>
-                )}
-              </Box>
-            }
-            sx={{ alignItems: 'flex-start' }}
-          />
-        ))}
-      </FormGroup>
-      {!disabled && (
-        <Button
-          variant='contained'
-          size='small'
-          sx={{ mt: 2, borderRadius: '20px', textTransform: 'none' }}
-          disabled={selected.size === 0}
-          onClick={() => onConfirm(articles.filter((_, idx) => selected.has(idx)))}
-        >
-          Confirmar Seleção ({selected.size})
-        </Button>
-      )}
-    </Box>
-  );
-};
 
 export default function OnboardingChat() {
   const navigate = useNavigate();
@@ -172,6 +87,118 @@ export default function OnboardingChat() {
     scrollToBottom();
   }, [localMessages, pendingInterruptsList, isLoading]);
 
+  const processStream = async (response: Response) => {
+    if (!response.body) return;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    let activeAiMessageId: number | null = null;
+    let currentAgentName = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const data = JSON.parse(line);
+
+          switch (data.type) {
+            case 'token':
+              const incomingAgent = data.agent_name || 'Supervisor';
+              
+              if (!activeAiMessageId || incomingAgent !== currentAgentName) {
+                // Agent switched or it's the first message: Create new block
+                activeAiMessageId = Date.now() + Math.random();
+                currentAgentName = incomingAgent;
+                setLocalMessages((prev) => [
+                  ...prev,
+                  {
+                    id: activeAiMessageId,
+                    type: 'ai',
+                    agent_name: currentAgentName,
+                    content: data.content || '',
+                    structured_data: null,
+                  },
+                ]);
+              } else {
+                // Append to existing block
+                setLocalMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === activeAiMessageId
+                      ? { ...msg, content: msg.content + (data.content || '') }
+                      : msg
+                  )
+                );
+              }
+              break;
+
+            case 'state':
+              if (activeAiMessageId) {
+                setLocalMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === activeAiMessageId
+                      ? { ...msg, structured_data: { ...msg.structured_data, ...data.data } }
+                      : msg
+                  )
+                );
+              }
+              break;
+
+            case 'interrupt':
+              setPendingInterruptsList([{ id: data.id, value: data.data }]); // data.data is the payload now
+              if (data.data && activeAiMessageId) {
+                setLocalMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === activeAiMessageId
+                      ? { ...msg, structured_data: { ...msg.structured_data, ...data.data } }
+                      : msg
+                  )
+                );
+              }
+              break;
+
+            case 'error':
+              console.error('Stream error:', data.message);
+              break;
+            
+            case 'agent':
+              // If the agent switch event comes, we respect it and might start a new block
+              if (data.name !== currentAgentName) {
+                activeAiMessageId = Date.now() + Math.random();
+                currentAgentName = data.name;
+                setLocalMessages((prev) => [
+                  ...prev,
+                  {
+                    id: activeAiMessageId,
+                    type: 'ai',
+                    agent_name: currentAgentName,
+                    content: '',
+                    structured_data: null,
+                  },
+                ]);
+              }
+              break;
+
+            case 'end':
+              // Optional clean up
+              break;
+
+            default:
+              console.warn('Unknown event type from stream', data);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  };
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -182,24 +209,8 @@ export default function OnboardingChat() {
     setIsLoading(true);
 
     try {
-      const data = await sendMessage(conversationId, userText, searchSource);
-      if (data.type === 'interrupt') {
-        setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      }
-
-      // Sempre adicionar a mensagem se houver conteúdo, mesmo em interrupções
-      if (data.text || data.structured_data) {
-        setLocalMessages((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            type: 'ai',
-            agent_name: data.agent_name,
-            content: data.text,
-            structured_data: data.structured_data,
-          },
-        ]);
-      }
+      const response = await sendMessage(conversationId, userText, searchSource);
+      await processStream(response);
     } catch (error) {
       console.error(error);
       setLocalMessages((prev) => [
@@ -209,50 +220,6 @@ export default function OnboardingChat() {
           type: 'ai',
           agent_name: 'system',
           content: 'Erro ao conectar ao servidor.',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleConfirmArticles = async (selectedArticles: any[]) => {
-    if (isLoading || selectedArticles.length === 0) return;
-
-    // Build a natural language message for the AI
-    const titles = selectedArticles.map(a => `"${a.title}"`).join(', ');
-    const userText = `Eu selecionei os seguintes artigos para aprofundar minha pesquisa: ${titles}.`;
-
-    setLocalMessages((prev) => [...prev, { id: Date.now(), type: 'human', content: userText }]);
-    setIsLoading(true);
-
-    try {
-      const data = await sendMessage(conversationId, userText, searchSource);
-      if (data.type === 'interrupt') {
-        setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      }
-
-      if (data.text || data.structured_data) {
-        setLocalMessages((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            type: 'ai',
-            agent_name: data.agent_name,
-            content: data.text,
-            structured_data: data.structured_data,
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error(error);
-      setLocalMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: 'ai',
-          agent_name: 'system',
-          content: 'Erro ao enviar seleção.',
         },
       ]);
     } finally {
@@ -276,28 +243,13 @@ export default function OnboardingChat() {
     setIsLoading(true);
 
     try {
-      const data = await resumeMessage(
+      const response = await resumeMessage(
         conversationId,
         hitlInterruptId,
-        { type: 'approve' },
+        { action: 'approve' },
         searchSource,
       );
-      if (data.type === 'interrupt') {
-        setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      }
-
-      if (data.text || data.structured_data) {
-        setLocalMessages((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            type: 'ai',
-            agent_name: data.agent_name,
-            content: data.text,
-            structured_data: data.structured_data,
-          },
-        ]);
-      }
+      await processStream(response);
     } catch (error) {
       console.error(error);
     } finally {
@@ -314,28 +266,13 @@ export default function OnboardingChat() {
     setIsLoading(true);
 
     try {
-      const data = await resumeMessage(
+      const response = await resumeMessage(
         conversationId,
         hitlInterruptId,
-        { type: 'reject', message: reason },
+        { action: 'reject', message: reason },
         searchSource,
       );
-      if (data.type === 'interrupt') {
-        setPendingInterruptsList([{ id: data.id, value: data.interrupts }]);
-      }
-
-      if (data.text || data.structured_data) {
-        setLocalMessages((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            type: 'ai',
-            agent_name: data.agent_name,
-            content: data.text,
-            structured_data: data.structured_data,
-          },
-        ]);
-      }
+      await processStream(response);
     } catch (error) {
       console.error(error);
     } finally {
@@ -459,17 +396,7 @@ export default function OnboardingChat() {
                       <Typography variant='body1' sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                         {msg.content}
                       </Typography>
-                      {msg.structured_data?.suggested_articles &&
-                        Array.isArray(msg.structured_data.suggested_articles) &&
-                        msg.structured_data.suggested_articles.length > 0 && (
-                          <ArticleSelector
-                            articles={msg.structured_data.suggested_articles}
-                            onConfirm={handleConfirmArticles}
-                            disabled={isLoading || idx !== localMessages.length - 1}
-                          />
-                        )}
-
-                      {msg.structured_data?.roadmap && (
+                      {msg.structured_data && (
                         <Box
                           sx={{
                             mt: 2,
@@ -477,28 +404,17 @@ export default function OnboardingChat() {
                             bgcolor: 'background.paper',
                             borderRadius: 3,
                             border: '1px solid',
-                            borderColor: 'primary.main',
+                            borderColor: 'divider',
                             width: '100%',
+                            overflowX: 'auto',
                           }}
                         >
-                          <Typography variant='subtitle1' sx={{ color: 'primary.main', fontWeight: 600, mb: 1 }}>
-                            Proposta de Projeto: {msg.structured_data.project_title}
+                          <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1, fontWeight: 600 }}>
+                            Anexos Estruturados:
                           </Typography>
-                          {msg.structured_data.abstract && (
-                            <Typography variant='body2' sx={{ mb: 2, color: 'text.secondary', fontStyle: 'italic' }}>
-                              {msg.structured_data.abstract}
-                            </Typography>
-                          )}
-                          <Typography variant='subtitle2' sx={{ mb: 1 }}>Roadmap Inicial:</Typography>
-                          <List dense>
-                            {msg.structured_data.roadmap.map((t: any, i: number) => (
-                              <ListItem key={i} sx={{ px: 0 }}>
-                                <Typography variant='body2'>
-                                  <strong>Etapa {i + 1}: {t.title}</strong> — {t.description} ({t.due_in_days} dias)
-                                </Typography>
-                              </ListItem>
-                            ))}
-                          </List>
+                          <pre style={{ margin: 0, fontSize: '0.85rem', color: '#555', whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(msg.structured_data, null, 2)}
+                          </pre>
                         </Box>
                       )}
                     </Box>

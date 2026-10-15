@@ -29,7 +29,7 @@ export const sendMessage = async (
     throw new Error('Erro ao enviar mensagem');
   }
 
-  return response.json();
+  return response;
 };
 
 export const resumeMessage = async (
@@ -61,7 +61,7 @@ export const resumeMessage = async (
     throw new Error('Erro ao enviar aprovação');
   }
 
-  return response.json();
+  return response;
 };
 export interface InterruptActionRequest {
   name: string;
